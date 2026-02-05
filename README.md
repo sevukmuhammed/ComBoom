@@ -1,9 +1,10 @@
 # ComBoom - Block Puzzle Game
 
 <p align="center">
-  <img src="docs/screenshots/splash.png" alt="ComBoom Splash" width="250"/>
-  <img src="docs/screenshots/menu.png" alt="Main Menu" width="250"/>
-  <img src="docs/screenshots/gameplay.png" alt="Gameplay" width="250"/>
+  <img src="docs/screenshots/menu.jpeg" alt="Main Menu" width="220"/>
+  <img src="docs/screenshots/gameplay.jpeg" alt="Gameplay" width="220"/>
+  <img src="docs/screenshots/ranks.jpeg" alt="Ranks" width="220"/>
+  <img src="docs/screenshots/settings.jpeg" alt="Settings" width="220"/>
 </p>
 
 A polished mobile block puzzle game built with **Unity 6** for **iOS** and **Android**. Place blocks on an 8x8 grid, clear rows and columns, chain combos, and climb the leaderboard.
@@ -195,16 +196,19 @@ Splash Screen ──→ Main Menu ──→ Gameplay ──→ Game Over
 
 ## Screenshots
 
-> Add screenshots to `docs/screenshots/` directory:
+<p align="center">
+  <img src="docs/screenshots/menu.jpeg" alt="Main Menu" width="200"/>
+  <img src="docs/screenshots/gameplay.jpeg" alt="Gameplay" width="200"/>
+  <img src="docs/screenshots/ranks.jpeg" alt="Ranks" width="200"/>
+  <img src="docs/screenshots/settings.jpeg" alt="Settings" width="200"/>
+</p>
 
-| Screen | File |
-|--------|------|
-| Splash | `docs/screenshots/splash.png` |
-| Main Menu | `docs/screenshots/menu.png` |
-| Gameplay | `docs/screenshots/gameplay.png` |
-| Combo | `docs/screenshots/combo.png` |
-| Game Over | `docs/screenshots/gameover.png` |
-| Level Up | `docs/screenshots/levelup.png` |
+| Screen | Description |
+|--------|-------------|
+| **Main Menu** | COMBOOM title, Play button, Ranks & Settings, Best Score |
+| **Gameplay** | 8x8 grid, 3 piece slots, power-ups (Undo, Bomb, Shuffle), level bar |
+| **Ranks** | Leaderboard with top players, your rank highlighted at bottom |
+| **Settings** | Sound, Music, Vibration toggles, Language selection |
 
 ---
 
