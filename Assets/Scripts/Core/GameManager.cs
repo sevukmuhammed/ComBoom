@@ -84,6 +84,11 @@ namespace ComBoom.Core
         public void ShowSplash()
         {
             currentState = GameState.Splash;
+
+            // Grid ve spawner'i gizle - splash sirasinda gorunmesin
+            if (gridManager != null) gridManager.gameObject.SetActive(false);
+            if (pieceSpawner != null) pieceSpawner.gameObject.SetActive(false);
+
             if (splashPanel != null)
                 splashPanel.Show();
             else
