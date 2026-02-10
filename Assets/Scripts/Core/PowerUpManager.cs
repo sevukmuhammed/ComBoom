@@ -5,6 +5,7 @@ using TMPro;
 using System;
 using ComBoom.Gameplay;
 using ComBoom.Input;
+using ComBoom.Ads;
 
 namespace ComBoom.Core
 {
@@ -125,28 +126,34 @@ namespace ComBoom.Core
 
         public void UseUndo()
         {
-            if (!canUndo || undoCount <= 0 || lastGridSnapshot == null || lastPieceSnapshot == null)
-                return;
-
             var gm = GameManager.Instance;
             if (gm == null || gm.CurrentState != GameState.Playing)
                 return;
 
-            // Count azalt
+            if (!canUndo || lastGridSnapshot == null || lastPieceSnapshot == null)
+                return;
+
+            if (undoCount <= 0)
+            {
+                TryGetPowerUpFromAd(PowerUpType.Undo);
+                return;
+            }
+
+            ExecuteUndo();
+        }
+
+        private void ExecuteUndo()
+        {
+            var gm = GameManager.Instance;
+            if (gm == null) return;
+
             undoCount--;
             SaveCounts();
 
-            // Grid restore
             gridManager.GridData.RestoreSnapshot(lastGridSnapshot.Value);
             gridManager.RestoreVisuals(lastGridSnapshot.Value);
-
-            // Piece restore
             pieceSpawner.RestoreSnapshot(lastPieceSnapshot.Value);
-
-            // Score restore
             scoreManager.SetScore(lastScore);
-
-            // Combo state restore
             gm.RestoreComboState(lastComboCount, lastLinesClearedThisTurn);
 
             canUndo = false;
@@ -155,7 +162,6 @@ namespace ComBoom.Core
             UpdateUndoState();
             UpdateBadges();
 
-            // Haptic feedback
             HapticManager.ImpactLight();
         }
 
@@ -171,11 +177,14 @@ namespace ComBoom.Core
                 return;
             }
 
-            if (bombCount <= 0) return;
+            if (bombCount <= 0)
+            {
+                TryGetPowerUpFromAd(PowerUpType.Bomb);
+                return;
+            }
 
             isBombMode = true;
 
-            // Drag'i devre disi birak (cakisma onle)
             if (dragDropHandler != null)
                 dragDropHandler.enabled = false;
         }
@@ -200,27 +209,31 @@ namespace ComBoom.Core
             if (gm == null || gm.CurrentState != GameState.Playing)
                 return;
 
-            if (shuffleCount <= 0) return;
-
             if (pieceSpawner.GetUnusedCount() == 0)
                 return;
 
-            // Count azalt
+            if (shuffleCount <= 0)
+            {
+                TryGetPowerUpFromAd(PowerUpType.Shuffle);
+                return;
+            }
+
+            ExecuteShuffle();
+        }
+
+        private void ExecuteShuffle()
+        {
             shuffleCount--;
             SaveCounts();
 
             pieceSpawner.ShuffleUnusedPieces();
 
-            // Shuffle sonrasi game over kontrolu
             if (!pieceSpawner.HasAnyPlaceablePiece(gridManager.GridData))
             {
-                // Shuffle bile kurtaramadiysa, tekrar dene (1 kez daha)
                 pieceSpawner.ShuffleUnusedPieces();
             }
 
             UpdateBadges();
-
-            // Haptic feedback
             HapticManager.ImpactLight();
         }
 
@@ -272,5 +285,60 @@ namespace ComBoom.Core
             if (undoButton == null) return;
             undoButton.interactable = interactable;
         }
+
+        private void TryGetPowerUpFromAd(PowerUpType type)
+        {
+            if (AdManager.Instance == null || !AdManager.Instance.IsRewardedReady())
+            {
+                Debug.LogWarning("[PowerUpManager] Rewarded ad not ready");
+                return;
+            }
+
+            AdManager.Instance.ShowRewardedForPowerUp((success) =>
+            {
+                if (success)
+                {
+                    GrantPowerUp(type);
+                }
+            });
+        }
+
+        private void GrantPowerUp(PowerUpType type)
+        {
+            switch (type)
+            {
+                case PowerUpType.Undo:
+                    undoCount++;
+                    SaveCounts();
+                    UpdateBadges();
+                    UpdateUndoState();
+                    if (canUndo && lastGridSnapshot != null && lastPieceSnapshot != null)
+                        ExecuteUndo();
+                    break;
+
+                case PowerUpType.Bomb:
+                    bombCount++;
+                    SaveCounts();
+                    UpdateBadges();
+                    UseBomb();
+                    break;
+
+                case PowerUpType.Shuffle:
+                    shuffleCount++;
+                    SaveCounts();
+                    UpdateBadges();
+                    ExecuteShuffle();
+                    break;
+            }
+
+            HapticManager.NotificationSuccess();
+        }
+    }
+
+    public enum PowerUpType
+    {
+        Undo,
+        Bomb,
+        Shuffle
     }
 }

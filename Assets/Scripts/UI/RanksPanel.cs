@@ -56,20 +56,42 @@ namespace ComBoom.UI
             int topScore = 900000;
             int botScore = 10000;
 
+            // Kullanıcının gerçek skorunu al
+            int playerScore = 0;
+            ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
+            if (scoreManager != null)
+            {
+                playerScore = scoreManager.HighScore;
+            }
+
+            // Mock listeyi oluştur ve kullanıcı sıralamasını hesapla
+            int playerRank = entryCount + 1; // Varsayılan: listenin sonunda
+            int[] mockScores = new int[entryCount];
+
+            for (int i = 0; i < entryCount; i++)
+            {
+                float t = (float)i / (entryCount - 1);
+                int score = Mathf.RoundToInt(Mathf.Lerp(topScore, botScore, t * t));
+                mockScores[i] = (score / 100) * 100;
+
+                // Kullanıcı sıralamasını hesapla
+                if (playerScore >= mockScores[i] && playerRank > i + 1)
+                {
+                    playerRank = i + 1;
+                }
+            }
+
+            // Listeyi oluştur
             for (int i = 0; i < entryCount; i++)
             {
                 int rank = i + 1;
-                float t = (float)i / (entryCount - 1);
-                int score = Mathf.RoundToInt(Mathf.Lerp(topScore, botScore, t * t));
-                score = (score / 100) * 100;
                 string playerName = DummyNames[i % DummyNames.Length];
-
-                CreateRankRow(rank, playerName, score);
+                CreateRankRow(rank, playerName, mockScores[i]);
             }
 
-            // Player rank bar values
-            if (playerRankText != null) playerRankText.text = "#42";
-            if (playerScoreText != null) playerScoreText.text = "125,400";
+            // Kullanıcı skor barı - gerçek değerler
+            if (playerRankText != null) playerRankText.text = playerScore > 0 ? $"#{playerRank}" : "#--";
+            if (playerScoreText != null) playerScoreText.text = playerScore.ToString("N0");
         }
 
         private void CreateRankRow(int rank, string playerName, int score)

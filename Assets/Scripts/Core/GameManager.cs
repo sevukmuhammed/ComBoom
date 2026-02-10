@@ -2,6 +2,7 @@ using UnityEngine;
 using ComBoom.Gameplay;
 using ComBoom.Input;
 using ComBoom.UI;
+using ComBoom.Ads;
 using System.Collections.Generic;
 
 namespace ComBoom.Core
@@ -39,12 +40,16 @@ namespace ComBoom.Core
         [Header("Splash")]
         [SerializeField] private SplashPanel splashPanel;
 
+        [Header("Continue")]
+        [SerializeField] private ContinuePanel continuePanel;
+
         private GameState currentState;
         public GameState CurrentState => currentState;
 
         private int comboCount;
         private bool linesClearedThisTurn;
         private bool xpAddedThisGame;
+        private bool canContinue;
 
         private void Awake()
         {
@@ -98,6 +103,8 @@ namespace ComBoom.Core
             if (uiManager != null) uiManager.ShowMainMenu(level, best);
 
             if (audioManager != null) audioManager.StartMusic();
+
+            if (AdManager.Instance != null) AdManager.Instance.ShowBanner();
         }
 
         private void BindEvents()
@@ -130,6 +137,7 @@ namespace ComBoom.Core
             comboCount = 0;
             linesClearedThisTurn = false;
             xpAddedThisGame = false;
+            canContinue = true;
 
             if (audioManager != null) audioManager.StopMusic();
 
@@ -147,6 +155,12 @@ namespace ComBoom.Core
 
             if (levelProgressBar != null && levelManager != null && scoreManager != null)
                 levelProgressBar.Init(levelManager, scoreManager);
+
+            if (AdManager.Instance != null)
+            {
+                AdManager.Instance.OnGameStarted();
+                AdManager.Instance.ShowBanner();
+            }
         }
 
         public void GoToMenu()
@@ -293,6 +307,54 @@ namespace ComBoom.Core
 
         private void EndGame()
         {
+            bool adReady = AdManager.Instance != null && AdManager.Instance.IsRewardedReady();
+
+            if (canContinue && adReady)
+            {
+                currentState = GameState.WaitingForContinue;
+
+                if (AdManager.Instance != null) AdManager.Instance.HideBanner();
+
+                if (continuePanel != null)
+                {
+                    continuePanel.Show(
+                        scoreManager.CurrentScore,
+                        onContinue: () => Continue(),
+                        onSkipCallback: () => ShowRealGameOver()
+                    );
+                }
+                else
+                {
+                    ShowRealGameOver();
+                }
+            }
+            else
+            {
+                ShowRealGameOver();
+            }
+        }
+
+        public void Continue()
+        {
+            canContinue = false;
+
+            int rowsToClear = AdManager.Instance != null && AdManager.Instance.Config != null
+                ? AdManager.Instance.Config.rowsToClearOnContinue
+                : 2;
+
+            gridManager.ClearRandomRows(rowsToClear);
+            pieceSpawner.SpawnNewSet();
+
+            currentState = GameState.Playing;
+
+            if (uiManager != null) uiManager.ShowGameUI();
+            if (AdManager.Instance != null) AdManager.Instance.ShowBanner();
+
+            HapticManager.NotificationSuccess();
+        }
+
+        private void ShowRealGameOver()
+        {
             currentState = GameState.GameOver;
 
             if (!xpAddedThisGame && levelManager != null && scoreManager != null)
@@ -302,8 +364,21 @@ namespace ComBoom.Core
             }
 
             if (audioManager != null) audioManager.PlayGameOver();
-            if (uiManager != null) uiManager.ShowGameOver(scoreManager.CurrentScore, scoreManager.HighScore);
             HapticManager.NotificationError();
+
+            if (AdManager.Instance != null) AdManager.Instance.HideBanner();
+
+            if (AdManager.Instance != null)
+            {
+                AdManager.Instance.TryShowInterstitial(() =>
+                {
+                    if (uiManager != null) uiManager.ShowGameOver(scoreManager.CurrentScore, scoreManager.HighScore);
+                });
+            }
+            else
+            {
+                if (uiManager != null) uiManager.ShowGameOver(scoreManager.CurrentScore, scoreManager.HighScore);
+            }
         }
     }
 }

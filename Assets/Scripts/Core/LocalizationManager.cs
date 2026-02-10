@@ -77,6 +77,12 @@ namespace ComBoom.Core
 
             // === GAME OVER ===
             Add("game_over",    "GAME OVER",    "OYUN BİTTİ",  "SPIEL VORBEI", "FIN DEL JUEGO","GIOCO FINITO", "PARTIE TERMINÉE");
+            Add("game_over_title","GAME OVER!",  "OYUN BİTTİ!", "SPIEL VORBEI!","¡FIN DEL JUEGO!","GIOCO FINITO!","PARTIE TERMINÉE!");
+
+            // === CONTINUE ===
+            Add("continue_watch_ad","WATCH AD & CONTINUE","REKLAM İZLE VE DEVAM ET","WERBUNG ANSEHEN & WEITERSPIELEN","VER ANUNCIO Y CONTINUAR","GUARDA PUBBLICITÀ E CONTINUA","REGARDER PUB ET CONTINUER");
+            Add("continue_desc","Clear 2 rows and keep playing","2 satır temizle ve oynamaya devam et","2 Reihen löschen und weiterspielen","Elimina 2 filas y sigue jugando","Cancella 2 righe e continua a giocare","Effacer 2 lignes et continuer");
+            Add("skip",         "SKIP",         "GEÇI",        "ÜBERSPRINGEN", "SALTAR",       "SALTA",        "PASSER");
 
             // === PAUSE MENU ===
             Add("paused",       "PAUSED",       "DURAKLATILDI", "PAUSIERT",     "PAUSADO",      "IN PAUSA",     "EN PAUSE");
