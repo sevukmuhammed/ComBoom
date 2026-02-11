@@ -13,8 +13,9 @@ namespace ComBoom.Core
 
         [Header("Layout Settings")]
         [SerializeField] private float scoreAreaPadding = 1.6f;
-        [SerializeField] private float bottomPadding = 1.4f;
+        [SerializeField] private float gridToSpawnGap = 0.6f;  // Grid ile spawn arası boşluk
         [SerializeField] private float slotAreaHeight = 2.0f;
+        [SerializeField] private float bannerHeight = 1.2f;    // Banner için alt boşluk
 
         private float gridTotalSize;
 
@@ -48,8 +49,14 @@ namespace ComBoom.Core
             if (gridTransform != null)
                 gridTransform.position = new Vector3(0, gridY, 0);
 
-            // Slot'lar: alttan yukari
-            float slotsY = safeWorldBottom + bottomPadding + slotAreaHeight / 2f;
+            // Spawn area: Grid'in altina göre hesapla (constraint tabanlı)
+            float gridBottom = gridY - gridTotalSize / 2f;
+            float slotsY = gridBottom - gridToSpawnGap - slotAreaHeight / 2f;
+
+            // Banner ve ActionBar için minimum alt sınır kontrolü
+            float minSlotsY = safeWorldBottom + bannerHeight + slotAreaHeight / 2f;
+            slotsY = Mathf.Max(slotsY, minSlotsY);
+
             if (pieceSpawnerTransform != null)
                 pieceSpawnerTransform.position = new Vector3(0, slotsY, 0);
 

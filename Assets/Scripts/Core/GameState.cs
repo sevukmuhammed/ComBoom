@@ -6,6 +6,7 @@ namespace ComBoom.Core
         Menu,
         Playing,
         Paused,
+        WaitingForContinue,
         GameOver
     }
 }

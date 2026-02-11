@@ -286,5 +286,47 @@ namespace ComBoom.Core
             Vector3 cellWorldPos = GetWorldPosition(row, col);
             BrickBreakEffect.Spawn(cellWorldPos, cellColor, 0);
         }
+
+        public void ClearRandomRows(int count)
+        {
+            List<int> occupiedRows = new List<int>();
+            Dictionary<int, int> rowFillCounts = new Dictionary<int, int>();
+
+            for (int r = 0; r < GameGrid.SIZE; r++)
+            {
+                int filledCount = 0;
+                for (int c = 0; c < GameGrid.SIZE; c++)
+                {
+                    if (grid.IsOccupied(r, c)) filledCount++;
+                }
+                if (filledCount > 0)
+                {
+                    occupiedRows.Add(r);
+                    rowFillCounts[r] = filledCount;
+                }
+            }
+
+            occupiedRows.Sort((a, b) => rowFillCounts[b].CompareTo(rowFillCounts[a]));
+
+            int rowsToClear = Mathf.Min(count, occupiedRows.Count);
+
+            for (int i = 0; i < rowsToClear; i++)
+            {
+                int row = occupiedRows[i];
+                for (int c = 0; c < GameGrid.SIZE; c++)
+                {
+                    if (grid.IsOccupied(row, c))
+                    {
+                        Color cellColor = cellColorMap[row, c];
+                        grid.ClearCell(row, c);
+                        cellObjects[row, c].PlayClearAnimation(emptyColor);
+                        cellColorMap[row, c] = Color.clear;
+
+                        Vector3 cellWorldPos = GetWorldPosition(row, c);
+                        BrickBreakEffect.Spawn(cellWorldPos, cellColor, 1);
+                    }
+                }
+            }
+        }
     }
 }
