@@ -3,6 +3,7 @@ using ComBoom.Gameplay;
 using ComBoom.Input;
 using ComBoom.UI;
 using ComBoom.Ads;
+using ComBoom.Social;
 using System.Collections.Generic;
 
 namespace ComBoom.Core
@@ -368,6 +369,9 @@ namespace ComBoom.Core
                 xpAddedThisGame = true;
             }
 
+            // Skoru leaderboard'a gönder
+            SubmitScoreToLeaderboard();
+
             if (audioManager != null) audioManager.PlayGameOver();
             HapticManager.NotificationError();
 
@@ -383,6 +387,22 @@ namespace ComBoom.Core
             else
             {
                 if (uiManager != null) uiManager.ShowGameOver(scoreManager.CurrentScore, scoreManager.HighScore);
+            }
+        }
+
+        private void SubmitScoreToLeaderboard()
+        {
+            if (SocialManager.Instance == null || !SocialManager.Instance.IsAuthenticated)
+                return;
+
+            if (scoreManager == null)
+                return;
+
+            // Sadece high score'u gönder (en iyi skor)
+            int highScore = scoreManager.HighScore;
+            if (highScore > 0)
+            {
+                SocialManager.Instance.SubmitScore(highScore);
             }
         }
     }

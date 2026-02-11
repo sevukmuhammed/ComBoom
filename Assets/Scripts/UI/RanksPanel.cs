@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using ComBoom.Core;
 using ComBoom.Gameplay;
+using ComBoom.Social;
 
 namespace ComBoom.UI
 {
@@ -13,8 +14,9 @@ namespace ComBoom.UI
         [SerializeField] private TextMeshProUGUI playerRankText;
         [SerializeField] private TextMeshProUGUI playerScoreText;
         [SerializeField] private AudioManager audioManager;
+        [SerializeField] private GameObject loadingIndicator;
 
-        private bool populated;
+        private bool isLoading;
 
         private static readonly string[] DummyNames = {
             "BlockMaster", "PuzzleKing", "FitQueen", "GridWizard", "ComboLord",
@@ -32,7 +34,7 @@ namespace ComBoom.UI
         public void Show()
         {
             if (panel != null) panel.SetActive(true);
-            if (!populated) PopulateList();
+            RefreshLeaderboard();
         }
 
         public void Hide()
@@ -47,25 +49,88 @@ namespace ComBoom.UI
             GameManager.Instance.ShowMainMenu();
         }
 
-        private void PopulateList()
+        /// <summary>
+        /// Leaderboard'u yeniler - her Show'da çağrılır
+        /// </summary>
+        public void RefreshLeaderboard()
         {
-            if (contentParent == null) return;
-            populated = true;
+            ClearList();
 
+            // Kullanıcının local skorunu göster
+            UpdatePlayerScoreBar();
+
+            // SocialManager varsa ve authenticate ise gerçek veriyi yükle
+            if (SocialManager.Instance != null && SocialManager.Instance.IsAuthenticated)
+            {
+                LoadRealLeaderboard();
+            }
+            else
+            {
+                // Authenticate değilse mock data göster
+                PopulateMockList();
+            }
+        }
+
+        private void LoadRealLeaderboard()
+        {
+            if (isLoading) return;
+            isLoading = true;
+
+            if (loadingIndicator != null)
+                loadingIndicator.SetActive(true);
+
+            SocialManager.Instance.LoadLeaderboard(entries =>
+            {
+                isLoading = false;
+
+                if (loadingIndicator != null)
+                    loadingIndicator.SetActive(false);
+
+                if (entries != null && entries.Length > 0)
+                {
+                    // Gerçek veriyi göster
+                    PopulateRealList(entries);
+                }
+                else
+                {
+                    // Yükleme başarısız - mock data göster
+                    PopulateMockList();
+                }
+            });
+        }
+
+        private void PopulateRealList(LeaderboardEntry[] entries)
+        {
+            int playerScore = GetPlayerHighScore();
+            int playerRank = -1;
+
+            foreach (var entry in entries)
+            {
+                bool isLocalPlayer = entry.IsLocalPlayer;
+                CreateRankRow(entry.Rank, entry.PlayerName, (int)entry.Score, isLocalPlayer);
+
+                if (isLocalPlayer)
+                    playerRank = entry.Rank;
+            }
+
+            // Kullanıcı sıralamasını güncelle
+            if (playerRankText != null)
+            {
+                if (playerRank > 0)
+                    playerRankText.text = $"#{playerRank}";
+                else
+                    playerRankText.text = playerScore > 0 ? "#--" : "#--";
+            }
+        }
+
+        private void PopulateMockList()
+        {
             int entryCount = 50;
             int topScore = 900000;
             int botScore = 10000;
 
-            // Kullanıcının gerçek skorunu al
-            int playerScore = 0;
-            ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
-            if (scoreManager != null)
-            {
-                playerScore = scoreManager.HighScore;
-            }
-
-            // Mock listeyi oluştur ve kullanıcı sıralamasını hesapla
-            int playerRank = entryCount + 1; // Varsayılan: listenin sonunda
+            int playerScore = GetPlayerHighScore();
+            int playerRank = entryCount + 1;
             int[] mockScores = new int[entryCount];
 
             for (int i = 0; i < entryCount; i++)
@@ -74,27 +139,47 @@ namespace ComBoom.UI
                 int score = Mathf.RoundToInt(Mathf.Lerp(topScore, botScore, t * t));
                 mockScores[i] = (score / 100) * 100;
 
-                // Kullanıcı sıralamasını hesapla
                 if (playerScore >= mockScores[i] && playerRank > i + 1)
                 {
                     playerRank = i + 1;
                 }
             }
 
-            // Listeyi oluştur
             for (int i = 0; i < entryCount; i++)
             {
                 int rank = i + 1;
                 string playerName = DummyNames[i % DummyNames.Length];
-                CreateRankRow(rank, playerName, mockScores[i]);
+                CreateRankRow(rank, playerName, mockScores[i], false);
             }
 
-            // Kullanıcı skor barı - gerçek değerler
-            if (playerRankText != null) playerRankText.text = playerScore > 0 ? $"#{playerRank}" : "#--";
-            if (playerScoreText != null) playerScoreText.text = playerScore.ToString("N0");
+            if (playerRankText != null)
+                playerRankText.text = playerScore > 0 ? $"#{playerRank}" : "#--";
         }
 
-        private void CreateRankRow(int rank, string playerName, int score)
+        private void UpdatePlayerScoreBar()
+        {
+            int playerScore = GetPlayerHighScore();
+            if (playerScoreText != null)
+                playerScoreText.text = playerScore.ToString("N0");
+        }
+
+        private int GetPlayerHighScore()
+        {
+            ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
+            return scoreManager != null ? scoreManager.HighScore : 0;
+        }
+
+        private void ClearList()
+        {
+            if (contentParent == null) return;
+
+            for (int i = contentParent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(contentParent.GetChild(i).gameObject);
+            }
+        }
+
+        private void CreateRankRow(int rank, string playerName, int score, bool isLocalPlayer = false)
         {
             bool isTop3 = rank <= 3;
 
@@ -109,7 +194,10 @@ namespace ComBoom.UI
             rowBg.type = Image.Type.Sliced;
             rowBg.raycastTarget = false;
 
-            if (isTop3)
+            // Local player satırını vurgula
+            if (isLocalPlayer)
+                rowBg.color = new Color(0.063f, 0.725f, 0.506f, 0.4f); // Yeşil highlight
+            else if (isTop3)
                 rowBg.color = new Color(0.059f, 0.090f, 0.165f, 0.60f);
             else
                 rowBg.color = new Color(0.059f, 0.090f, 0.165f, 0.35f);
@@ -123,7 +211,7 @@ namespace ComBoom.UI
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = false;
 
-            // Rank column (sabit 40px container - trophy veya sayi, hepsi ayni hizada)
+            // Rank column
             GameObject rankContainer = new GameObject("RankCol");
             rankContainer.transform.SetParent(row.transform, false);
             RectTransform rankContainerRT = rankContainer.AddComponent<RectTransform>();
@@ -170,27 +258,29 @@ namespace ComBoom.UI
                 rankTMP.text = rank.ToString();
                 rankTMP.fontSize = 32;
                 rankTMP.alignment = TextAlignmentOptions.Center;
-                rankTMP.color = new Color(0.392f, 0.455f, 0.545f, 1f); // slate-500
+                rankTMP.color = isLocalPlayer
+                    ? new Color(0.063f, 0.725f, 0.506f, 1f) // Yeşil
+                    : new Color(0.392f, 0.455f, 0.545f, 1f); // slate-500
                 rankTMP.fontStyle = FontStyles.Bold;
             }
 
-            // Name column (flexible width)
+            // Name column
             GameObject nameObj = new GameObject("PlayerName");
             nameObj.transform.SetParent(row.transform, false);
             TextMeshProUGUI nameTMP = nameObj.AddComponent<TextMeshProUGUI>();
             nameTMP.font = GetDefaultTMPFont();
-            nameTMP.text = playerName;
+            nameTMP.text = isLocalPlayer ? $"{playerName} (Sen)" : playerName;
             nameTMP.fontSize = 32;
             nameTMP.alignment = TextAlignmentOptions.Left;
-            nameTMP.color = Color.white;
-            nameTMP.fontStyle = FontStyles.Normal;
+            nameTMP.color = isLocalPlayer ? new Color(0.063f, 0.725f, 0.506f, 1f) : Color.white;
+            nameTMP.fontStyle = isLocalPlayer ? FontStyles.Bold : FontStyles.Normal;
             nameTMP.enableAutoSizing = false;
 
             LayoutElement nameLE = nameObj.AddComponent<LayoutElement>();
             nameLE.flexibleWidth = 1;
             nameLE.minWidth = 80;
 
-            // Score column (sabit sag taraf)
+            // Score column
             GameObject scoreObj = new GameObject("Score");
             scoreObj.transform.SetParent(row.transform, false);
             TextMeshProUGUI scoreTMP = scoreObj.AddComponent<TextMeshProUGUI>();
@@ -201,7 +291,11 @@ namespace ComBoom.UI
             scoreTMP.fontStyle = FontStyles.Bold;
             scoreTMP.enableAutoSizing = false;
 
-            if (isTop3)
+            if (isLocalPlayer)
+            {
+                scoreTMP.color = new Color(0.063f, 0.725f, 0.506f, 1f);
+            }
+            else if (isTop3)
             {
                 scoreTMP.color = rank switch
                 {
@@ -212,7 +306,7 @@ namespace ComBoom.UI
             }
             else
             {
-                scoreTMP.color = new Color(0.580f, 0.639f, 0.722f, 1f); // slate-400
+                scoreTMP.color = new Color(0.580f, 0.639f, 0.722f, 1f);
             }
 
             LayoutElement scoreLE = scoreObj.AddComponent<LayoutElement>();
