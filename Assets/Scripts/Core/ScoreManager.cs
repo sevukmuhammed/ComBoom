@@ -74,5 +74,20 @@ namespace ComBoom.Core
             currentScore = score;
             OnScoreChanged?.Invoke(currentScore);
         }
+
+        /// <summary>
+        /// Cloud'dan gelen skor local'dan yüksekse güncelle
+        /// </summary>
+        public void SyncFromCloud(int cloudScore)
+        {
+            if (cloudScore > highScore)
+            {
+                highScore = cloudScore;
+                PlayerPrefs.SetInt(HIGH_SCORE_KEY, highScore);
+                PlayerPrefs.Save();
+                OnHighScoreChanged?.Invoke(highScore);
+                Debug.Log($"[ScoreManager] Cloud'dan senkronize edildi: {highScore}");
+            }
+        }
     }
 }

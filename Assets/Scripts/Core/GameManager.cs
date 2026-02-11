@@ -3,6 +3,7 @@ using ComBoom.Gameplay;
 using ComBoom.Input;
 using ComBoom.UI;
 using ComBoom.Ads;
+using ComBoom.Social;
 using System.Collections.Generic;
 
 namespace ComBoom.Core
@@ -78,6 +79,10 @@ namespace ComBoom.Core
             BindEvents();
 
             if (levelManager != null) levelManager.Initialize();
+
+            // Game Center / Play Games - SocialManager yoksa oluştur
+            EnsureSocialManager();
+
             ShowSplash();
         }
 
@@ -368,6 +373,9 @@ namespace ComBoom.Core
                 xpAddedThisGame = true;
             }
 
+            // Submit score to Game Center / Play Games
+            SubmitScoreToLeaderboard();
+
             if (audioManager != null) audioManager.PlayGameOver();
             HapticManager.NotificationError();
 
@@ -384,6 +392,30 @@ namespace ComBoom.Core
             {
                 if (uiManager != null) uiManager.ShowGameOver(scoreManager.CurrentScore, scoreManager.HighScore);
             }
+        }
+
+        private void SubmitScoreToLeaderboard()
+        {
+            if (SocialManager.Instance == null || scoreManager == null) return;
+
+            int score = scoreManager.CurrentScore;
+            if (score <= 0) return;
+
+            SocialManager.Instance.SubmitScore(score);
+        }
+
+        private void EnsureSocialManager()
+        {
+            if (SocialManager.Instance != null)
+            {
+                SocialManager.Instance.Authenticate();
+                return;
+            }
+
+            // SocialManager yoksa otomatik oluştur
+            GameObject socialManagerObj = new GameObject("SocialManager");
+            SocialManager socialManager = socialManagerObj.AddComponent<SocialManager>();
+            socialManager.Authenticate();
         }
     }
 }
