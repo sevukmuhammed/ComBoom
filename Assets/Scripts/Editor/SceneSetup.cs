@@ -6,6 +6,8 @@ using ComBoom.Core;
 using ComBoom.Gameplay;
 using ComBoom.Input;
 using ComBoom.UI;
+using ComBoom.Ads;
+using ComBoom.Social;
 
 public class SceneSetup : EditorWindow
 {
@@ -41,11 +43,20 @@ public class SceneSetup : EditorWindow
         GameObject levelManagerObj = new GameObject("LevelManager");
         levelManagerObj.AddComponent<LevelManager>();
 
+        // AdManager olustur
+        GameObject adManagerObj = CreateAdManager();
+
+        // SocialManager olustur
+        CreateSocialManager();
+
         // Splash screen olustur (Canvas altinda, tam ekran)
         CreateSplashScreen(canvasObj.transform);
 
+        // Continue Panel olustur
+        CreateContinuePanel(canvasObj.transform);
+
         // Referanslari bagla
-        WireReferences(gameManagerObj, gridManagerObj, pieceSpawnerObj, dragDropObj, audioManagerObj, canvasObj, layoutObj, powerUpObj, levelManagerObj);
+        WireReferences(gameManagerObj, gridManagerObj, pieceSpawnerObj, dragDropObj, audioManagerObj, canvasObj, layoutObj, powerUpObj, levelManagerObj, adManagerObj);
 
         // Sahneyi kaydet (otomatik - MarkDirty + Save)
         var activeScene = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene();
@@ -149,7 +160,7 @@ public class SceneSetup : EditorWindow
     private static GameObject CreatePieceSpawner()
     {
         GameObject obj = new GameObject("PieceSpawner");
-        obj.transform.position = new Vector3(0, -3.8f, 0);
+        obj.transform.position = new Vector3(0, -3.4f, 0);
         obj.AddComponent<PieceSpawner>();
 
         // 3 slot pozisyonu
@@ -193,6 +204,12 @@ public class SceneSetup : EditorWindow
         SetPrivateField(layout, "gridTransform", gridTr);
         SetPrivateField(layout, "pieceSpawnerTransform", spawnerTr);
         SetPrivateField(layout, "slotTransforms", slots);
+
+        // Constraint ayarları
+        SetPrivateField(layout, "scoreAreaPadding", 1.6f);
+        SetPrivateField(layout, "gridToSpawnGap", 0.5f);      // Grid-Spawn arası
+        SetPrivateField(layout, "slotAreaHeight", 2.0f);
+        SetPrivateField(layout, "bannerHeight", 1.8f);        // Banner + ActionBar için
 
         return obj;
     }
@@ -423,10 +440,11 @@ public class SceneSetup : EditorWindow
         SetPrivateField(levelProgressBar, "fillBarGlow", barGlowImg);
 
         // === ACTION BUTTONS (UNDO / BOMB / SHUFFLE) ===
+        // ActionBar - Banner icin %8 yukarda baslıyor
         GameObject actionBar = CreatePanel(gameUI.transform, "ActionBar");
         RectTransform actionBarRect = actionBar.GetComponent<RectTransform>();
-        actionBarRect.anchorMin = new Vector2(0.05f, 0.005f);
-        actionBarRect.anchorMax = new Vector2(0.95f, 0.065f);
+        actionBarRect.anchorMin = new Vector2(0.05f, 0.08f);
+        actionBarRect.anchorMax = new Vector2(0.95f, 0.14f);
         actionBarRect.offsetMin = Vector2.zero;
         actionBarRect.offsetMax = Vector2.zero;
         Image actionBarImg = actionBar.GetComponent<Image>();
@@ -446,18 +464,37 @@ public class SceneSetup : EditorWindow
             float btnStart = i * 0.34f;
             float btnEnd = btnStart + 0.30f;
 
+            // Undo ikonu kendi rengine sahip, diğerleri tint alıyor
+            Color iconColor = (i == 0) ? Color.white : new Color(0.580f, 0.639f, 0.722f, 1f);
+
             GameObject actionBtn = CreateActionButtonWithIcon(actionBar.transform,
                 $"ActionBtn_{actionLabels[i]}", actionLabels[i], actionIcons[i],
-                new Color(0.08f, 0.09f, 0.15f, 0.55f), new Color(0.580f, 0.639f, 0.722f, 1f));
+                new Color(0.08f, 0.09f, 0.15f, 0.55f), iconColor);
             RectTransform actionBtnRect = actionBtn.GetComponent<RectTransform>();
             actionBtnRect.anchorMin = new Vector2(btnStart, 0f);
             actionBtnRect.anchorMax = new Vector2(btnEnd, 1f);
             actionBtnRect.offsetMin = Vector2.zero;
             actionBtnRect.offsetMax = Vector2.zero;
 
-            // Localize action label
+            // Undo ikonu boyutunu küçült (diğerleriyle aynı görünsün)
+            if (i == 0)
+            {
+                Transform iconTr = actionBtn.transform.Find("Icon");
+                if (iconTr != null)
+                {
+                    RectTransform iconRt = iconTr.GetComponent<RectTransform>();
+                    iconRt.anchorMin = new Vector2(0.30f, 0.42f);
+                    iconRt.anchorMax = new Vector2(0.70f, 0.90f);
+                }
+            }
+
+            // Undo ikonu için label rengini ayrı ayarla
             TextMeshProUGUI actionLabelTMP = actionBtn.GetComponentInChildren<TextMeshProUGUI>();
-            if (actionLabelTMP != null) AddLocKey(actionLabelTMP.gameObject, actionLocKeys[i]);
+            if (actionLabelTMP != null)
+            {
+                AddLocKey(actionLabelTMP.gameObject, actionLocKeys[i]);
+                if (i == 0) actionLabelTMP.color = new Color(0.580f, 0.639f, 0.722f, 1f);
+            }
 
             // Kirmizi badge (sag ust kose, kalan sayi)
             CreateCountBadge(actionBtn.transform, $"Badge_{actionLabels[i]}");
@@ -720,7 +757,7 @@ public class SceneSetup : EditorWindow
     // ============================================================
     private static void WireReferences(GameObject gameManagerObj, GameObject gridManagerObj,
         GameObject pieceSpawnerObj, GameObject dragDropObj, GameObject audioManagerObj, GameObject canvasObj,
-        GameObject layoutManagerObj, GameObject powerUpObj, GameObject levelManagerObj)
+        GameObject layoutManagerObj, GameObject powerUpObj, GameObject levelManagerObj, GameObject adManagerObj)
     {
         GameManager gm = gameManagerObj.GetComponent<GameManager>();
         GridManager gridMgr = gridManagerObj.GetComponent<GridManager>();
@@ -742,6 +779,14 @@ public class SceneSetup : EditorWindow
         SetPrivateField(gm, "uiManager", uiMgr);
         SetPrivateField(gm, "layoutManager", layout);
         SetPrivateField(gm, "powerUpManager", powerUp);
+
+        // ContinuePanel referansi
+        Transform continuePanelTr = canvasObj.transform.Find("SafeAreaPanel/ContinuePanel");
+        if (continuePanelTr != null)
+        {
+            ContinuePanel continuePanel = continuePanelTr.GetComponent<ContinuePanel>();
+            SetPrivateField(gm, "continuePanel", continuePanel);
+        }
 
         // PowerUpManager referanslari
         SetPrivateField(powerUp, "gridManager", gridMgr);
@@ -1662,26 +1707,28 @@ public class SceneSetup : EditorWindow
         settingsRT.offsetMax = Vector2.zero;
         AddLocKey(settingsBtn.GetComponentInChildren<TextMeshProUGUI>().gameObject, "settings");
 
-        // --- BEST SCORE AREA ---
-        // Best score label
-        GameObject bestLabel = CreateTextElement(menuRoot.transform, "BestScoreLabel", "BEST SCORE",
-            22, TextAlignmentOptions.Center, new Color(0.961f, 0.620f, 0.043f, 1f)); // #F59E0B gold
-        RectTransform bestLabelRT = bestLabel.GetComponent<RectTransform>();
-        bestLabelRT.anchorMin = new Vector2(0.1f, 0.22f);
-        bestLabelRT.anchorMax = new Vector2(0.9f, 0.28f);
-        bestLabelRT.offsetMin = Vector2.zero;
-        bestLabelRT.offsetMax = Vector2.zero;
-        bestLabel.GetComponent<TextMeshProUGUI>().characterSpacing = 8f;
-        AddLocKey(bestLabel, "best_score");
+        // --- BEST SCORE AREA (Banner üstünde, dinamik konumlandırma) ---
+        // Sıralama: Banner (en alt) -> Score Value -> Score Label (üstte)
 
-        // Best score value
+        // Best score value (skor sayısı) - Banner'ın üstünde
         GameObject bestValue = CreateTextElement(menuRoot.transform, "BestScoreValue", "0",
-            56, TextAlignmentOptions.Center, new Color(0.961f, 0.620f, 0.043f, 1f));
+            48, TextAlignmentOptions.Center, new Color(0.961f, 0.620f, 0.043f, 1f));
         RectTransform bestValueRT = bestValue.GetComponent<RectTransform>();
-        bestValueRT.anchorMin = new Vector2(0.1f, 0.13f);
-        bestValueRT.anchorMax = new Vector2(0.9f, 0.23f);
+        bestValueRT.anchorMin = new Vector2(0.1f, 0.06f);  // Banner alanının üstünden başla
+        bestValueRT.anchorMax = new Vector2(0.9f, 0.11f);
         bestValueRT.offsetMin = Vector2.zero;
         bestValueRT.offsetMax = Vector2.zero;
+
+        // Best score label ("EN İYİ SKOR") - Score value'nun üstünde
+        GameObject bestLabel = CreateTextElement(menuRoot.transform, "BestScoreLabel", "BEST SCORE",
+            18, TextAlignmentOptions.Center, new Color(0.6f, 0.6f, 0.65f, 1f)); // Gri renk
+        RectTransform bestLabelRT = bestLabel.GetComponent<RectTransform>();
+        bestLabelRT.anchorMin = new Vector2(0.1f, 0.11f);  // Score value'nun üstünden başla
+        bestLabelRT.anchorMax = new Vector2(0.9f, 0.14f);
+        bestLabelRT.offsetMin = Vector2.zero;
+        bestLabelRT.offsetMax = Vector2.zero;
+        bestLabel.GetComponent<TextMeshProUGUI>().characterSpacing = 4f;
+        AddLocKey(bestLabel, "best_score");
 
         // Wire MainMenuPanel internal references
         SetPrivateField(menuPanel, "panel", menuRoot);
@@ -2026,6 +2073,12 @@ public class SceneSetup : EditorWindow
             slateIcon, "TERMS OF SERVICE", 32, out termsBtn, "terms");
         AddRowExternalLink(termsBtn.transform);
 
+        // === PRIVACY POLICY ROW ===
+        Button privacyBtn;
+        CreateSettingsRow(content.transform, "PrivacyRow", SpriteGenerator.CreateShieldIconSprite(),
+            slateIcon, "PRIVACY POLICY", 32, out privacyBtn, "privacy_policy");
+        AddRowExternalLink(privacyBtn.transform);
+
         // === CONTACT ROW ===
         Button contactBtn;
         CreateSettingsRow(content.transform, "ContactRow", SpriteGenerator.CreateMailIconSprite(),
@@ -2059,6 +2112,8 @@ public class SceneSetup : EditorWindow
             langBtn.onClick, settingsPanel.OnLanguageButton);
         UnityEditor.Events.UnityEventTools.AddPersistentListener(
             termsBtn.onClick, settingsPanel.OnTermsButton);
+        UnityEditor.Events.UnityEventTools.AddPersistentListener(
+            privacyBtn.onClick, settingsPanel.OnPrivacyButton);
         UnityEditor.Events.UnityEventTools.AddPersistentListener(
             contactBtn.onClick, settingsPanel.OnContactButton);
 
@@ -2395,11 +2450,53 @@ public class SceneSetup : EditorWindow
         titleText.GetComponent<TextMeshProUGUI>().characterSpacing = 12f;
         AddLocKey(titleText, "ranks");
 
-        // --- SCROLL AREA ---
+        // --- USER SCORE BAR (Banner üstünde sabit) ---
+        GameObject userScoreBar = new GameObject("UserScoreBar");
+        userScoreBar.transform.SetParent(safeArea.transform, false);
+        RectTransform userScoreBarRT = userScoreBar.AddComponent<RectTransform>();
+        userScoreBarRT.anchorMin = new Vector2(0f, 0.06f);   // Banner üstünde
+        userScoreBarRT.anchorMax = new Vector2(1f, 0.13f);   // %7 yükseklik
+        userScoreBarRT.offsetMin = Vector2.zero;
+        userScoreBarRT.offsetMax = Vector2.zero;
+
+        Image userScoreBarBg = userScoreBar.AddComponent<Image>();
+        userScoreBarBg.color = new Color(0.545f, 0.361f, 0.965f, 0.25f); // Mor vurgulu arka plan
+
+        // User rank (#42)
+        GameObject userRankObj = CreateTextElement(userScoreBar.transform, "UserRank", "#--",
+            24, TextAlignmentOptions.Left, new Color(0.7f, 0.7f, 0.75f, 1f));
+        RectTransform userRankRT = userRankObj.GetComponent<RectTransform>();
+        userRankRT.anchorMin = new Vector2(0.04f, 0f);
+        userRankRT.anchorMax = new Vector2(0.15f, 1f);
+        userRankRT.offsetMin = Vector2.zero;
+        userRankRT.offsetMax = Vector2.zero;
+
+        // User name ("Sen" / "You")
+        GameObject userNameObj = CreateTextElement(userScoreBar.transform, "UserName", "Sen",
+            26, TextAlignmentOptions.Left, Color.white);
+        RectTransform userNameRT = userNameObj.GetComponent<RectTransform>();
+        userNameRT.anchorMin = new Vector2(0.16f, 0f);
+        userNameRT.anchorMax = new Vector2(0.55f, 1f);
+        userNameRT.offsetMin = Vector2.zero;
+        userNameRT.offsetMax = Vector2.zero;
+        userNameObj.GetComponent<TextMeshProUGUI>().fontStyle = FontStyles.Bold;
+        AddLocKey(userNameObj, "you");
+
+        // User score
+        GameObject userScoreObj = CreateTextElement(userScoreBar.transform, "UserScore", "0",
+            26, TextAlignmentOptions.Right, new Color(0.545f, 0.361f, 0.965f, 1f)); // Mor
+        RectTransform userScoreRT = userScoreObj.GetComponent<RectTransform>();
+        userScoreRT.anchorMin = new Vector2(0.55f, 0f);
+        userScoreRT.anchorMax = new Vector2(0.96f, 1f);
+        userScoreRT.offsetMin = Vector2.zero;
+        userScoreRT.offsetMax = Vector2.zero;
+        userScoreObj.GetComponent<TextMeshProUGUI>().fontStyle = FontStyles.Bold;
+
+        // --- SCROLL AREA (UserScoreBar üstünde) ---
         GameObject scrollArea = new GameObject("ScrollArea");
         scrollArea.transform.SetParent(safeArea.transform, false);
         RectTransform scrollAreaRT = scrollArea.AddComponent<RectTransform>();
-        scrollAreaRT.anchorMin = new Vector2(0.03f, 0.10f);
+        scrollAreaRT.anchorMin = new Vector2(0.03f, 0.14f);  // UserScoreBar üstünden başla
         scrollAreaRT.anchorMax = new Vector2(0.97f, 0.90f);
         scrollAreaRT.offsetMin = Vector2.zero;
         scrollAreaRT.offsetMax = Vector2.zero;
@@ -2458,117 +2555,14 @@ public class SceneSetup : EditorWindow
 
         scrollRect.content = contentRT;
 
-        // --- PLAYER BAR (altta sabit, mor vurgulu) ---
-        GameObject playerBar = new GameObject("PlayerBar");
-        playerBar.transform.SetParent(safeArea.transform, false);
-        RectTransform playerBarRT = playerBar.AddComponent<RectTransform>();
-        playerBarRT.anchorMin = new Vector2(0, 0);
-        playerBarRT.anchorMax = new Vector2(1, 0.10f);
-        playerBarRT.offsetMin = Vector2.zero;
-        playerBarRT.offsetMax = Vector2.zero;
+        // Wire RanksPanel internal references (UserScoreBar elementlerini kullan)
+        TextMeshProUGUI userRankTMP = userRankObj.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI userScoreTMP = userScoreObj.GetComponent<TextMeshProUGUI>();
 
-        Image playerBarBg = playerBar.AddComponent<Image>();
-        playerBarBg.color = new Color(0.059f, 0.090f, 0.165f, 0.95f); // slate-900/95
-
-        // Purple left border (4px accent)
-        GameObject purpleBorder = new GameObject("PurpleBorder");
-        purpleBorder.transform.SetParent(playerBar.transform, false);
-        RectTransform purpleBorderRT = purpleBorder.AddComponent<RectTransform>();
-        purpleBorderRT.anchorMin = new Vector2(0, 0);
-        purpleBorderRT.anchorMax = new Vector2(0, 1);
-        purpleBorderRT.pivot = new Vector2(0, 0.5f);
-        purpleBorderRT.sizeDelta = new Vector2(4, 0);
-        Image purpleBorderImg = purpleBorder.AddComponent<Image>();
-        purpleBorderImg.color = new Color(0.545f, 0.361f, 0.965f, 1f); // #8B5CF6
-        purpleBorderImg.raycastTarget = false;
-
-        // Player bar layout
-        HorizontalLayoutGroup playerHLG = playerBar.AddComponent<HorizontalLayoutGroup>();
-        playerHLG.padding = new RectOffset(16, 16, 8, 8);
-        playerHLG.spacing = 12;
-        playerHLG.childAlignment = TextAnchor.MiddleLeft;
-        playerHLG.childControlWidth = false;
-        playerHLG.childControlHeight = true;
-        playerHLG.childForceExpandWidth = false;
-        playerHLG.childForceExpandHeight = false;
-
-        // Rank number
-        GameObject playerRank = new GameObject("PlayerRank");
-        playerRank.transform.SetParent(playerBar.transform, false);
-        TextMeshProUGUI playerRankTMP = playerRank.AddComponent<TextMeshProUGUI>();
-        playerRankTMP.font = GetDefaultTMPFont();
-        playerRankTMP.text = "#42";
-        playerRankTMP.fontSize = 32;
-        playerRankTMP.alignment = TextAlignmentOptions.Center;
-        playerRankTMP.color = new Color(0.545f, 0.361f, 0.965f, 1f); // purple
-        playerRankTMP.fontStyle = FontStyles.Bold;
-        LayoutElement playerRankLE = playerRank.AddComponent<LayoutElement>();
-        playerRankLE.minWidth = 60;
-        playerRankLE.preferredWidth = 60;
-
-        // Name area
-        GameObject playerNameArea = new GameObject("PlayerNameArea");
-        playerNameArea.transform.SetParent(playerBar.transform, false);
-        RectTransform playerNameAreaRT = playerNameArea.AddComponent<RectTransform>();
-
-        VerticalLayoutGroup nameVLG = playerNameArea.AddComponent<VerticalLayoutGroup>();
-        nameVLG.childAlignment = TextAnchor.MiddleLeft;
-        nameVLG.childControlWidth = true;
-        nameVLG.childControlHeight = true;
-        nameVLG.childForceExpandWidth = true;
-        nameVLG.childForceExpandHeight = false;
-        nameVLG.spacing = 0;
-
-        LayoutElement nameAreaLE = playerNameArea.AddComponent<LayoutElement>();
-        nameAreaLE.flexibleWidth = 1;
-
-        // "You (YOU)"
-        GameObject youName = new GameObject("YouName");
-        youName.transform.SetParent(playerNameArea.transform, false);
-        TextMeshProUGUI youNameTMP = youName.AddComponent<TextMeshProUGUI>();
-        youNameTMP.font = GetDefaultTMPFont();
-        youNameTMP.text = "You";
-        youNameTMP.fontSize = 28;
-        youNameTMP.alignment = TextAlignmentOptions.Left;
-        youNameTMP.color = Color.white;
-        youNameTMP.fontStyle = FontStyles.Bold;
-        LayoutElement youNameLE = youName.AddComponent<LayoutElement>();
-        youNameLE.preferredHeight = 30;
-        AddLocKey(youName, "you");
-
-        // "Your Rank" subtitle
-        GameObject yourRankLabel = new GameObject("YourRankLabel");
-        yourRankLabel.transform.SetParent(playerNameArea.transform, false);
-        TextMeshProUGUI yourRankTMP = yourRankLabel.AddComponent<TextMeshProUGUI>();
-        yourRankTMP.font = GetDefaultTMPFont();
-        yourRankTMP.text = "Your Rank";
-        yourRankTMP.fontSize = 20;
-        yourRankTMP.alignment = TextAlignmentOptions.Left;
-        yourRankTMP.color = new Color(0.392f, 0.455f, 0.545f, 1f); // slate-500
-        yourRankTMP.fontStyle = FontStyles.Normal;
-        LayoutElement yourRankLE = yourRankLabel.AddComponent<LayoutElement>();
-        yourRankLE.preferredHeight = 22;
-        AddLocKey(yourRankLabel, "your_rank");
-
-        // Score (gold, right-aligned)
-        GameObject playerScore = new GameObject("PlayerScore");
-        playerScore.transform.SetParent(playerBar.transform, false);
-        TextMeshProUGUI playerScoreTMP = playerScore.AddComponent<TextMeshProUGUI>();
-        playerScoreTMP.font = GetDefaultTMPFont();
-        playerScoreTMP.text = "125,400";
-        playerScoreTMP.fontSize = 34;
-        playerScoreTMP.alignment = TextAlignmentOptions.Right;
-        playerScoreTMP.color = new Color(0.961f, 0.620f, 0.043f, 1f); // gold
-        playerScoreTMP.fontStyle = FontStyles.Bold;
-        LayoutElement playerScoreLE = playerScore.AddComponent<LayoutElement>();
-        playerScoreLE.minWidth = 150;
-        playerScoreLE.preferredWidth = 180;
-
-        // Wire RanksPanel internal references
         SetPrivateField(ranksPanel, "panel", panelRoot);
         SetPrivateField(ranksPanel, "contentParent", content.transform);
-        SetPrivateField(ranksPanel, "playerRankText", playerRankTMP);
-        SetPrivateField(ranksPanel, "playerScoreText", playerScoreTMP);
+        SetPrivateField(ranksPanel, "playerRankText", userRankTMP);
+        SetPrivateField(ranksPanel, "playerScoreText", userScoreTMP);
 
         // Wire back button onClick
         UnityEditor.Events.UnityEventTools.AddPersistentListener(
@@ -2603,5 +2597,234 @@ public class SceneSetup : EditorWindow
         }
 
         so.ApplyModifiedProperties();
+    }
+
+    // ============================================================
+    // AD MANAGER
+    // ============================================================
+    private static GameObject CreateAdManager()
+    {
+        GameObject adManagerObj = new GameObject("AdManager");
+        AdManager adMgr = adManagerObj.AddComponent<AdManager>();
+
+        // AdConfig ScriptableObject olustur veya mevcut olani bul
+        string configPath = "Assets/AdConfig.asset";
+        AdConfig config = AssetDatabase.LoadAssetAtPath<AdConfig>(configPath);
+
+        if (config == null)
+        {
+            config = ScriptableObject.CreateInstance<AdConfig>();
+            AssetDatabase.CreateAsset(config, configPath);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[ComBoom] AdConfig.asset olusturuldu: " + configPath);
+        }
+
+        // AdManager'a config'i bagla
+        SetPrivateField(adMgr, "config", config);
+
+        return adManagerObj;
+    }
+
+    // ============================================================
+    // SOCIAL MANAGER
+    // ============================================================
+    private static void CreateSocialManager()
+    {
+        GameObject socialManagerObj = new GameObject("SocialManager");
+        SocialManager socialMgr = socialManagerObj.AddComponent<SocialManager>();
+
+        // SocialConfig ScriptableObject olustur veya mevcut olani bul
+        string configPath = "Assets/Resources/SocialConfig.asset";
+        SocialConfig config = AssetDatabase.LoadAssetAtPath<SocialConfig>(configPath);
+
+        if (config == null)
+        {
+            config = ScriptableObject.CreateInstance<SocialConfig>();
+            AssetDatabase.CreateAsset(config, configPath);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[ComBoom] SocialConfig.asset olusturuldu: " + configPath);
+        }
+
+        // SocialManager'a config'i bagla
+        SetPrivateField(socialMgr, "config", config);
+
+        Debug.Log("[ComBoom] SocialManager olusturuldu (singleton - DontDestroyOnLoad)");
+    }
+
+    // ============================================================
+    // CONTINUE PANEL
+    // ============================================================
+    private static void CreateContinuePanel(Transform canvasTransform)
+    {
+        Transform safeArea = canvasTransform.Find("SafeAreaPanel");
+        if (safeArea == null) return;
+
+        // Panel root
+        GameObject panelRoot = new GameObject("ContinuePanel");
+        panelRoot.transform.SetParent(safeArea, false);
+        RectTransform panelRT = panelRoot.AddComponent<RectTransform>();
+        panelRT.anchorMin = Vector2.zero;
+        panelRT.anchorMax = Vector2.one;
+        panelRT.offsetMin = Vector2.zero;
+        panelRT.offsetMax = Vector2.zero;
+
+        // Background overlay
+        Image bgImage = panelRoot.AddComponent<Image>();
+        bgImage.color = new Color(0.02f, 0.03f, 0.06f, 0.95f);
+
+        // CanvasGroup for fade
+        CanvasGroup cg = panelRoot.AddComponent<CanvasGroup>();
+        cg.alpha = 1f;
+
+        // ContinuePanel script
+        ContinuePanel continuePanel = panelRoot.AddComponent<ContinuePanel>();
+
+        // Content container
+        GameObject content = new GameObject("Content");
+        content.transform.SetParent(panelRoot.transform, false);
+        RectTransform contentRT = content.AddComponent<RectTransform>();
+        contentRT.anchorMin = new Vector2(0.5f, 0.5f);
+        contentRT.anchorMax = new Vector2(0.5f, 0.5f);
+        contentRT.sizeDelta = new Vector2(600, 500);
+
+        // Title: "OYUN BITTI!"
+        GameObject titleObj = new GameObject("Title");
+        titleObj.transform.SetParent(content.transform, false);
+        RectTransform titleRT = titleObj.AddComponent<RectTransform>();
+        titleRT.anchorMin = new Vector2(0.5f, 1f);
+        titleRT.anchorMax = new Vector2(0.5f, 1f);
+        titleRT.anchoredPosition = new Vector2(0, -50);
+        titleRT.sizeDelta = new Vector2(500, 60);
+        TextMeshProUGUI titleTMP = titleObj.AddComponent<TextMeshProUGUI>();
+        titleTMP.text = "OYUN BITTI!";
+        titleTMP.fontSize = 48;
+        titleTMP.fontStyle = FontStyles.Bold;
+        titleTMP.alignment = TextAlignmentOptions.Center;
+        titleTMP.color = Color.white;
+
+        // Score text
+        GameObject scoreObj = new GameObject("ScoreText");
+        scoreObj.transform.SetParent(content.transform, false);
+        RectTransform scoreRT = scoreObj.AddComponent<RectTransform>();
+        scoreRT.anchorMin = new Vector2(0.5f, 1f);
+        scoreRT.anchorMax = new Vector2(0.5f, 1f);
+        scoreRT.anchoredPosition = new Vector2(0, -120);
+        scoreRT.sizeDelta = new Vector2(400, 50);
+        TextMeshProUGUI scoreTMP = scoreObj.AddComponent<TextMeshProUGUI>();
+        scoreTMP.text = "12,450";
+        scoreTMP.fontSize = 42;
+        scoreTMP.fontStyle = FontStyles.Bold;
+        scoreTMP.alignment = TextAlignmentOptions.Center;
+        scoreTMP.color = new Color(0.976f, 0.773f, 0.043f); // Gold
+
+        // Countdown text
+        GameObject countdownObj = new GameObject("CountdownText");
+        countdownObj.transform.SetParent(content.transform, false);
+        RectTransform countdownRT = countdownObj.AddComponent<RectTransform>();
+        countdownRT.anchorMin = new Vector2(0.5f, 0.5f);
+        countdownRT.anchorMax = new Vector2(0.5f, 0.5f);
+        countdownRT.anchoredPosition = new Vector2(0, 30);
+        countdownRT.sizeDelta = new Vector2(100, 80);
+        TextMeshProUGUI countdownTMP = countdownObj.AddComponent<TextMeshProUGUI>();
+        countdownTMP.text = "5";
+        countdownTMP.fontSize = 64;
+        countdownTMP.fontStyle = FontStyles.Bold;
+        countdownTMP.alignment = TextAlignmentOptions.Center;
+        countdownTMP.color = Color.white;
+
+        // Continue Button
+        GameObject continueBtn = new GameObject("ContinueButton");
+        continueBtn.transform.SetParent(content.transform, false);
+        RectTransform continueBtnRT = continueBtn.AddComponent<RectTransform>();
+        continueBtnRT.anchorMin = new Vector2(0.5f, 0.5f);
+        continueBtnRT.anchorMax = new Vector2(0.5f, 0.5f);
+        continueBtnRT.anchoredPosition = new Vector2(0, -60);
+        continueBtnRT.sizeDelta = new Vector2(450, 80);
+
+        Image continueBtnImg = continueBtn.AddComponent<Image>();
+        continueBtnImg.color = new Color(0.063f, 0.725f, 0.506f); // Green
+
+        Button continueBtnComp = continueBtn.AddComponent<Button>();
+        continueBtnComp.targetGraphic = continueBtnImg;
+
+        // Continue button text
+        GameObject continueBtnTextObj = new GameObject("Text");
+        continueBtnTextObj.transform.SetParent(continueBtn.transform, false);
+        RectTransform continueBtnTextRT = continueBtnTextObj.AddComponent<RectTransform>();
+        continueBtnTextRT.anchorMin = Vector2.zero;
+        continueBtnTextRT.anchorMax = Vector2.one;
+        continueBtnTextRT.offsetMin = new Vector2(10, 5);
+        continueBtnTextRT.offsetMax = new Vector2(-10, -5);
+        TextMeshProUGUI continueBtnTMP = continueBtnTextObj.AddComponent<TextMeshProUGUI>();
+        continueBtnTMP.text = "REKLAM IZLE VE DEVAM ET";
+        continueBtnTMP.fontSize = 24;
+        continueBtnTMP.fontStyle = FontStyles.Bold;
+        continueBtnTMP.alignment = TextAlignmentOptions.Center;
+        continueBtnTMP.color = Color.white;
+
+        // Continue description
+        GameObject descObj = new GameObject("DescText");
+        descObj.transform.SetParent(content.transform, false);
+        RectTransform descRT = descObj.AddComponent<RectTransform>();
+        descRT.anchorMin = new Vector2(0.5f, 0.5f);
+        descRT.anchorMax = new Vector2(0.5f, 0.5f);
+        descRT.anchoredPosition = new Vector2(0, -115);
+        descRT.sizeDelta = new Vector2(400, 30);
+        TextMeshProUGUI descTMP = descObj.AddComponent<TextMeshProUGUI>();
+        descTMP.text = "2 satir temizle ve oynamaya devam et";
+        descTMP.fontSize = 16;
+        descTMP.alignment = TextAlignmentOptions.Center;
+        descTMP.color = new Color(0.6f, 0.6f, 0.7f);
+
+        // Skip Button
+        GameObject skipBtn = new GameObject("SkipButton");
+        skipBtn.transform.SetParent(content.transform, false);
+        RectTransform skipBtnRT = skipBtn.AddComponent<RectTransform>();
+        skipBtnRT.anchorMin = new Vector2(0.5f, 0f);
+        skipBtnRT.anchorMax = new Vector2(0.5f, 0f);
+        skipBtnRT.anchoredPosition = new Vector2(0, 60);
+        skipBtnRT.sizeDelta = new Vector2(200, 50);
+
+        Image skipBtnImg = skipBtn.AddComponent<Image>();
+        skipBtnImg.color = new Color(0.3f, 0.3f, 0.35f, 0.8f);
+
+        Button skipBtnComp = skipBtn.AddComponent<Button>();
+        skipBtnComp.targetGraphic = skipBtnImg;
+
+        // Skip button text
+        GameObject skipBtnTextObj = new GameObject("Text");
+        skipBtnTextObj.transform.SetParent(skipBtn.transform, false);
+        RectTransform skipBtnTextRT = skipBtnTextObj.AddComponent<RectTransform>();
+        skipBtnTextRT.anchorMin = Vector2.zero;
+        skipBtnTextRT.anchorMax = Vector2.one;
+        skipBtnTextRT.offsetMin = Vector2.zero;
+        skipBtnTextRT.offsetMax = Vector2.zero;
+        TextMeshProUGUI skipBtnTMP = skipBtnTextObj.AddComponent<TextMeshProUGUI>();
+        skipBtnTMP.text = "VAZGEC";
+        skipBtnTMP.fontSize = 20;
+        skipBtnTMP.alignment = TextAlignmentOptions.Center;
+        skipBtnTMP.color = Color.white;
+
+        // Wire button events
+        UnityEditor.Events.UnityEventTools.AddPersistentListener(
+            continueBtnComp.onClick, continuePanel.OnContinueButton);
+        UnityEditor.Events.UnityEventTools.AddPersistentListener(
+            skipBtnComp.onClick, continuePanel.OnSkipButton);
+
+        // Set references via SerializedObject
+        SetPrivateField(continuePanel, "panel", panelRoot);
+        SetPrivateField(continuePanel, "canvasGroup", cg);
+        SetPrivateField(continuePanel, "titleText", titleTMP);
+        SetPrivateField(continuePanel, "scoreText", scoreTMP);
+        SetPrivateField(continuePanel, "countdownText", countdownTMP);
+        SetPrivateField(continuePanel, "continueButtonText", continueBtnTMP);
+        SetPrivateField(continuePanel, "continueDescText", descTMP);
+        SetPrivateField(continuePanel, "continueButton", continueBtnComp);
+        SetPrivateField(continuePanel, "skipButton", skipBtnComp);
+
+        // Start hidden
+        panelRoot.SetActive(false);
+
+        Debug.Log("[ComBoom] ContinuePanel olusturuldu");
     }
 }

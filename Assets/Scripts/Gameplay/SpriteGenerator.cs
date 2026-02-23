@@ -31,6 +31,7 @@ namespace ComBoom.Gameplay
         private static Sprite cachedShareIcon;
         private static Sprite cachedGlobeIcon;
         private static Sprite cachedDocumentIcon;
+        private static Sprite cachedShieldIcon;
         private static Sprite cachedMailIcon;
         private static Sprite cachedChevronRight;
         private static Sprite cachedExternalLink;
@@ -67,6 +68,7 @@ namespace ComBoom.Gameplay
             cachedShareIcon = null;
             cachedGlobeIcon = null;
             cachedDocumentIcon = null;
+            cachedShieldIcon = null;
             cachedMailIcon = null;
             cachedChevronRight = null;
             cachedExternalLink = null;
@@ -446,89 +448,39 @@ namespace ComBoom.Gameplay
         {
             if (cachedUndoIcon != null) return cachedUndoIcon;
 
-            int size = 64;
-            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            tex.filterMode = FilterMode.Bilinear;
-            Color white = Color.white;
-            Color clear = Color.clear;
-
-            // Temiz arka plan
-            for (int x = 0; x < size; x++)
-                for (int y = 0; y < size; y++)
-                    tex.SetPixel(x, y, clear);
-
-            // Dairesel ok: sola donuk ok + yarim daire
-            float cx = 34f, cy = 32f, r = 18f;
-            float thickness = 4.5f;
-
-            for (int x = 0; x < size; x++)
+            // Resources klasöründen yükle
+            Texture2D tex = Resources.Load<Texture2D>("Icons/undo_icon");
+            if (tex != null)
             {
-                for (int y = 0; y < size; y++)
-                {
-                    float dx = x - cx;
-                    float dy = y - cy;
-                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
-
-                    // Yarim daire yay (sag yarim, 270->90 derece, yani ust yarim)
-                    float angle = Mathf.Atan2(dy, dx) * Mathf.Rad2Deg;
-                    if (angle < 0) angle += 360f;
-
-                    bool onArc = false;
-                    // Yay: -30 ile 210 derece arasi (sola acik yarim daire)
-                    if (angle >= 330f || angle <= 210f)
-                    {
-                        float arcDist = Mathf.Abs(dist - r);
-                        if (arcDist < thickness)
-                        {
-                            float aa = 1f - Mathf.Clamp01(arcDist - thickness + 1.2f);
-                            if (aa > 0f)
-                            {
-                                Color existing = tex.GetPixel(x, y);
-                                float newAlpha = Mathf.Max(existing.a, aa);
-                                tex.SetPixel(x, y, new Color(1f, 1f, 1f, newAlpha));
-                                onArc = true;
-                            }
-                        }
-                    }
-
-                    // Ok ucu (sol tarafta, yay baslangici)
-                    if (!onArc)
-                    {
-                        // Ok ucu ucgen: nokta (12, 32), ustten ve alttan cizgiler
-                        float arrowTipX = 12f;
-                        float arrowTipY = 32f;
-                        float arrowBaseX = 24f;
-                        float arrowHalf = 10f;
-
-                        if (x >= arrowTipX - 1 && x <= arrowBaseX + 1)
-                        {
-                            float t = (x - arrowTipX) / (arrowBaseX - arrowTipX);
-                            float halfWidth = arrowHalf * t;
-                            float distFromCenter = Mathf.Abs(y - arrowTipY);
-
-                            if (distFromCenter <= halfWidth + 1.5f)
-                            {
-                                float aa = 1f - Mathf.Clamp01(distFromCenter - halfWidth);
-                                if (aa > 0f)
-                                {
-                                    Color existing = tex.GetPixel(x, y);
-                                    float newAlpha = Mathf.Max(existing.a, aa);
-                                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, newAlpha));
-                                }
-                            }
-                        }
-                    }
-                }
+                cachedUndoIcon = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), tex.width);
+                cachedUndoIcon.name = "UndoIcon";
+                return cachedUndoIcon;
             }
 
-            tex.Apply();
-            cachedUndoIcon = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+            // Fallback - dosya bulunamazsa basit ikon oluştur
+            Debug.LogWarning("[SpriteGenerator] Icons/undo_icon not found, using fallback");
+            int size = 64;
+            Texture2D fallbackTex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            fallbackTex.filterMode = FilterMode.Bilinear;
+            Color bgColor = new Color(0.30f, 0.65f, 0.95f, 1f);
+
+            for (int x = 0; x < size; x++)
+                for (int y = 0; y < size; y++)
+                {
+                    float dx = x - 32f;
+                    float dy = y - 32f;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    fallbackTex.SetPixel(x, y, dist <= 30f ? bgColor : Color.clear);
+                }
+
+            fallbackTex.Apply();
+            cachedUndoIcon = Sprite.Create(fallbackTex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
             cachedUndoIcon.name = "UndoIcon";
             return cachedUndoIcon;
         }
 
         // ============================================================
-        // BOMB ICON - Patlama yildizi
+        // BOMB ICON - Renkli bomba + fitil + kıvılcım
         // ============================================================
         public static Sprite CreateBombIconSprite()
         {
@@ -538,42 +490,108 @@ namespace ComBoom.Gameplay
             Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
             tex.filterMode = FilterMode.Bilinear;
 
-            float cx = 32f, cy = 32f;
-            float outerR = 24f;
-            float innerR = 12f;
-            int points = 8;
+            // Renkler
+            Color bombDark = new Color(0.25f, 0.25f, 0.32f, 1f);      // Koyu gri-mor
+            Color bombLight = new Color(0.45f, 0.45f, 0.55f, 1f);     // Açık gri
+            Color fuseColor = new Color(0.55f, 0.40f, 0.25f, 1f);     // Kahverengi fitil
+            Color sparkYellow = new Color(1f, 0.85f, 0.2f, 1f);       // Sarı kıvılcım
+            Color sparkOrange = new Color(1f, 0.5f, 0.1f, 1f);        // Turuncu kıvılcım
 
             for (int x = 0; x < size; x++)
                 for (int y = 0; y < size; y++)
                     tex.SetPixel(x, y, Color.clear);
 
+            float bombCx = 32f, bombCy = 26f, bombR = 18f;
+
             for (int x = 0; x < size; x++)
             {
                 for (int y = 0; y < size; y++)
                 {
-                    float dx = x - cx;
-                    float dy = y - cy;
+                    float dx = x - bombCx;
+                    float dy = y - bombCy;
                     float dist = Mathf.Sqrt(dx * dx + dy * dy);
-                    float angle = Mathf.Atan2(dy, dx);
 
-                    // Yildiz seklinde mesafe hesapla
-                    float segmentAngle = Mathf.PI * 2f / points;
-                    float halfSegment = segmentAngle / 2f;
-                    float localAngle = Mathf.Repeat(angle + Mathf.PI * 2f, segmentAngle);
-                    float t = Mathf.Abs(localAngle - halfSegment) / halfSegment;
-                    float starR = Mathf.Lerp(outerR, innerR, t);
-
-                    // Anti-aliased kenar
-                    if (dist <= starR + 1.2f)
+                    // Ana bomba gövdesi - gradyanlı
+                    if (dist <= bombR + 1.2f)
                     {
-                        float aa = 1f - Mathf.Clamp01(dist - starR);
-                        // Merkez parlama
-                        float glow = 1f;
-                        if (dist < innerR * 0.6f)
-                            glow = Mathf.Lerp(1.2f, 1f, dist / (innerR * 0.6f));
+                        float aa = 1f - Mathf.Clamp01(dist - bombR);
+                        // 3D efekt için gradyan (sol üst parlak)
+                        float highlight = 1f - (dx + dy) / (bombR * 2.5f);
+                        highlight = Mathf.Clamp01(highlight);
+                        Color bombColor = Color.Lerp(bombDark, bombLight, highlight);
+                        tex.SetPixel(x, y, new Color(bombColor.r, bombColor.g, bombColor.b, aa));
+                    }
 
-                        float v = Mathf.Clamp01(glow);
-                        tex.SetPixel(x, y, new Color(v, v, v, aa));
+                    // Parlak nokta (sol üst)
+                    float shineCx = bombCx - 6f, shineCy = bombCy + 6f, shineR = 4f;
+                    float shineDist = Mathf.Sqrt((x - shineCx) * (x - shineCx) + (y - shineCy) * (y - shineCy));
+                    if (shineDist < shineR)
+                    {
+                        float shineAA = 1f - (shineDist / shineR);
+                        shineAA *= 0.4f;
+                        Color existing = tex.GetPixel(x, y);
+                        if (existing.a > 0)
+                        {
+                            Color blended = Color.Lerp(existing, Color.white, shineAA);
+                            tex.SetPixel(x, y, new Color(blended.r, blended.g, blended.b, existing.a));
+                        }
+                    }
+
+                    // Fitil borusu
+                    float fuseBaseY = bombCy + bombR - 3f;
+                    float fuseTopY = bombCy + bombR + 5f;
+                    float fuseHalfW = 3.5f;
+                    if (y >= fuseBaseY && y <= fuseTopY && Mathf.Abs(x - bombCx) <= fuseHalfW)
+                    {
+                        float edgeDist = fuseHalfW - Mathf.Abs(x - bombCx);
+                        float aa = Mathf.Clamp01(edgeDist + 0.5f);
+                        Color existing = tex.GetPixel(x, y);
+                        if (aa > existing.a)
+                            tex.SetPixel(x, y, new Color(fuseColor.r * 0.7f, fuseColor.g * 0.7f, fuseColor.b * 0.7f, aa));
+                    }
+
+                    // Fitil ipi
+                    float fuseStartY = fuseTopY;
+                    float fuseEndY = 54f;
+                    if (y >= fuseStartY && y <= fuseEndY)
+                    {
+                        float t = (y - fuseStartY) / (fuseEndY - fuseStartY);
+                        float curveX = bombCx + Mathf.Sin(t * 2.5f) * 5f + t * 3f;
+                        float fuseDist = Mathf.Abs(x - curveX);
+                        if (fuseDist < 2.2f)
+                        {
+                            float aa = 1f - Mathf.Clamp01(fuseDist - 1.2f);
+                            Color existing = tex.GetPixel(x, y);
+                            if (aa > existing.a)
+                                tex.SetPixel(x, y, new Color(fuseColor.r, fuseColor.g, fuseColor.b, aa));
+                        }
+                    }
+
+                    // Kıvılcım yıldızı (fitil ucunda)
+                    float sparkCx = bombCx + Mathf.Sin(2.5f) * 5f + 3f;
+                    float sparkCy2 = 56f;
+                    float sparkDx = x - sparkCx;
+                    float sparkDy = y - sparkCy2;
+                    float sparkDist = Mathf.Sqrt(sparkDx * sparkDx + sparkDy * sparkDy);
+
+                    if (sparkDist < 9f)
+                    {
+                        float sparkAngle = Mathf.Atan2(sparkDy, sparkDx);
+                        int sparkPoints = 6;
+                        float segAngle = Mathf.PI * 2f / sparkPoints;
+                        float localAng = Mathf.Repeat(sparkAngle + Mathf.PI * 2f, segAngle);
+                        float tSpark = Mathf.Abs(localAng - segAngle / 2f) / (segAngle / 2f);
+                        float sparkR = Mathf.Lerp(7f, 3f, tSpark);
+
+                        if (sparkDist <= sparkR + 1f)
+                        {
+                            float aa = 1f - Mathf.Clamp01(sparkDist - sparkR);
+                            float sparkGrad = sparkDist / sparkR;
+                            Color sparkColor = Color.Lerp(sparkYellow, sparkOrange, sparkGrad);
+                            Color existing = tex.GetPixel(x, y);
+                            if (aa > existing.a)
+                                tex.SetPixel(x, y, new Color(sparkColor.r, sparkColor.g, sparkColor.b, aa));
+                        }
                     }
                 }
             }
@@ -585,7 +603,7 @@ namespace ComBoom.Gameplay
         }
 
         // ============================================================
-        // SHUFFLE ICON - Cift dairesel ok (refresh)
+        // SHUFFLE ICON - Dönen iki ok (refresh tarzı)
         // ============================================================
         public static Sprite CreateShuffleIconSprite()
         {
@@ -595,12 +613,16 @@ namespace ComBoom.Gameplay
             Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
             tex.filterMode = FilterMode.Bilinear;
 
-            float cx = 32f, cy = 32f, r = 18f;
-            float thickness = 4.5f;
+            // Renkler - Yeşil gradyan
+            Color colorLight = new Color(0.3f, 0.9f, 0.5f, 1f);   // Açık yeşil
+            Color colorDark = new Color(0.1f, 0.7f, 0.35f, 1f);   // Koyu yeşil
 
             for (int x = 0; x < size; x++)
                 for (int y = 0; y < size; y++)
                     tex.SetPixel(x, y, Color.clear);
+
+            float cx = 32f, cy = 32f, r = 14f;
+            float thickness = 6f;
 
             for (int x = 0; x < size; x++)
             {
@@ -610,74 +632,75 @@ namespace ComBoom.Gameplay
                     float dy = y - cy;
                     float dist = Mathf.Sqrt(dx * dx + dy * dy);
                     float arcDist = Mathf.Abs(dist - r);
-
                     float angle = Mathf.Atan2(dy, dx) * Mathf.Rad2Deg;
                     if (angle < 0) angle += 360f;
 
-                    // Ust yarim yay (0-180)
-                    bool onUpperArc = angle >= 10f && angle <= 170f && arcDist < thickness;
-                    // Alt yarim yay (190-350)
-                    bool onLowerArc = angle >= 190f && angle <= 350f && arcDist < thickness;
+                    float gradT = Mathf.Clamp01((float)(size - y) / size);
+                    Color gradColor = Color.Lerp(colorDark, colorLight, gradT);
+
+                    // Üst yarım yay (20° - 160°)
+                    bool onUpperArc = angle >= 20f && angle <= 160f && arcDist < thickness;
+                    // Alt yarım yay (200° - 340°)
+                    bool onLowerArc = angle >= 200f && angle <= 340f && arcDist < thickness;
 
                     if (onUpperArc || onLowerArc)
                     {
-                        float aa = 1f - Mathf.Clamp01(arcDist - thickness + 1.2f);
-                        if (aa > 0f)
+                        float aa = 1f - Mathf.Clamp01(arcDist - thickness + 1.8f);
+                        if (aa > 0.01f)
                         {
                             Color existing = tex.GetPixel(x, y);
-                            float newAlpha = Mathf.Max(existing.a, aa);
-                            tex.SetPixel(x, y, new Color(1f, 1f, 1f, newAlpha));
+                            if (aa > existing.a)
+                                tex.SetPixel(x, y, new Color(gradColor.r, gradColor.g, gradColor.b, aa));
                         }
                     }
 
-                    // Ok ucu 1: ust yay sag ucu (saat yonunde ok)
+                    // Ok ucu 1: Üst yay sağ ucu (20°), aşağı bakıyor
                     {
-                        float tipX = cx + r * Mathf.Cos(10f * Mathf.Deg2Rad);
-                        float tipY = cy + r * Mathf.Sin(10f * Mathf.Deg2Rad);
+                        float tipAng = 20f * Mathf.Deg2Rad;
+                        float tipX = cx + r * Mathf.Cos(tipAng);
+                        float tipY = cy + r * Mathf.Sin(tipAng);
                         float adx = x - tipX;
                         float ady = y - tipY;
-                        // Kucuk ucgen ok ucu (saga donuk)
-                        float arrowLen = 9f;
-                        float arrowHalf = 6f;
-                        float projX = adx;
-                        float projY = -ady; // asagi isaret ediyor
-                        if (projY >= -1 && projY <= arrowLen + 1)
+
+                        // Aşağı bakan ok
+                        float arrowLen = 12f;
+                        float arrowHalf = 8f;
+                        if (ady >= -2 && ady <= arrowLen)
                         {
-                            float tA = Mathf.Clamp01(projY / arrowLen);
-                            float halfW = arrowHalf * (1f - tA);
-                            float distC = Mathf.Abs(projX);
-                            if (distC <= halfW + 1.2f)
+                            float t = Mathf.Clamp01(ady / arrowLen);
+                            float halfW = arrowHalf * (1f - t);
+                            if (Mathf.Abs(adx) <= halfW + 1.5f)
                             {
-                                float aa2 = 1f - Mathf.Clamp01(distC - halfW);
+                                float aa = 1f - Mathf.Clamp01(Mathf.Abs(adx) - halfW);
                                 Color existing = tex.GetPixel(x, y);
-                                float newAlpha = Mathf.Max(existing.a, aa2);
-                                tex.SetPixel(x, y, new Color(1f, 1f, 1f, newAlpha));
+                                if (aa > existing.a)
+                                    tex.SetPixel(x, y, new Color(gradColor.r, gradColor.g, gradColor.b, aa));
                             }
                         }
                     }
 
-                    // Ok ucu 2: alt yay sol ucu (saat yonunde ok)
+                    // Ok ucu 2: Alt yay sol ucu (200°), yukarı bakıyor
                     {
-                        float tipX = cx + r * Mathf.Cos(190f * Mathf.Deg2Rad);
-                        float tipY = cy + r * Mathf.Sin(190f * Mathf.Deg2Rad);
+                        float tipAng = 200f * Mathf.Deg2Rad;
+                        float tipX = cx + r * Mathf.Cos(tipAng);
+                        float tipY = cy + r * Mathf.Sin(tipAng);
                         float adx = x - tipX;
                         float ady = y - tipY;
-                        // Yukari isaret eden ok ucu
-                        float arrowLen = 9f;
-                        float arrowHalf = 6f;
-                        float projX = adx;
-                        float projY = ady;
-                        if (projY >= -1 && projY <= arrowLen + 1)
+
+                        // Yukarı bakan ok (ady negatif yönde)
+                        float arrowLen = 12f;
+                        float arrowHalf = 8f;
+                        float arrowDy = -ady; // Yukarı yön
+                        if (arrowDy >= -2 && arrowDy <= arrowLen)
                         {
-                            float tA = Mathf.Clamp01(projY / arrowLen);
-                            float halfW = arrowHalf * (1f - tA);
-                            float distC = Mathf.Abs(projX);
-                            if (distC <= halfW + 1.2f)
+                            float t = Mathf.Clamp01(arrowDy / arrowLen);
+                            float halfW = arrowHalf * (1f - t);
+                            if (Mathf.Abs(adx) <= halfW + 1.5f)
                             {
-                                float aa2 = 1f - Mathf.Clamp01(distC - halfW);
+                                float aa = 1f - Mathf.Clamp01(Mathf.Abs(adx) - halfW);
                                 Color existing = tex.GetPixel(x, y);
-                                float newAlpha = Mathf.Max(existing.a, aa2);
-                                tex.SetPixel(x, y, new Color(1f, 1f, 1f, newAlpha));
+                                if (aa > existing.a)
+                                    tex.SetPixel(x, y, new Color(gradColor.r, gradColor.g, gradColor.b, aa));
                             }
                         }
                     }
@@ -1872,6 +1895,93 @@ namespace ComBoom.Gameplay
             cachedDocumentIcon = Sprite.Create(tex, new Rect(0,0,size,size), new Vector2(0.5f,0.5f), size);
             cachedDocumentIcon.name = "DocumentIcon";
             return cachedDocumentIcon;
+        }
+
+        // ============================================================
+        // SHIELD ICON - Privacy/Security kalkani
+        // ============================================================
+        public static Sprite CreateShieldIconSprite()
+        {
+            if (cachedShieldIcon != null) return cachedShieldIcon;
+            int size = 64;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            Color[] clear = new Color[size * size];
+            tex.SetPixels(clear);
+
+            float cx = 32f, top = 56f, bot = 10f;
+            float halfW = 16f; // shield half-width at top
+
+            for (int x = 0; x < size; x++)
+            for (int y = 0; y < size; y++)
+            {
+                float a = 0f;
+                // Shield shape: wide at top, narrows to point at bottom
+                float t = Mathf.InverseLerp(bot, top, y); // 0=bottom, 1=top
+                float w = halfW * Mathf.Lerp(0f, 1f, Mathf.Pow(t, 0.45f));
+                float left = cx - w;
+                float right = cx + w;
+
+                // Top is flat with slight curve
+                bool inShield = x >= left && x <= right && y >= bot && y <= top;
+                // Round the top corners
+                if (y > top - 6f && inShield)
+                {
+                    float cornerR = 5f;
+                    if (x < left + cornerR && y > top - cornerR)
+                    {
+                        float dist = Vector2.Distance(new Vector2(x, y), new Vector2(left + cornerR, top - cornerR));
+                        if (dist > cornerR) inShield = false;
+                    }
+                    if (x > right - cornerR && y > top - cornerR)
+                    {
+                        float dist = Vector2.Distance(new Vector2(x, y), new Vector2(right - cornerR, top - cornerR));
+                        if (dist > cornerR) inShield = false;
+                    }
+                }
+
+                if (inShield)
+                {
+                    // Border
+                    float dLeft = x - left, dRight = right - x;
+                    float dBot = y - bot, dTop = top - y;
+                    float dEdge = Mathf.Min(Mathf.Min(dLeft, dRight), Mathf.Min(dBot, dTop));
+                    if (dEdge < 2.5f)
+                        a = Mathf.Max(a, Mathf.Clamp01(2.5f - dEdge));
+
+                    // Checkmark inside shield
+                    // Check stroke from (24,30) -> (30,24) -> (40,42)
+                    float cx1 = 26f, cy1 = 32f; // start
+                    float cx2 = 30f, cy2 = 27f; // mid
+                    float cx3 = 39f, cy3 = 40f; // end
+
+                    // Line 1: start->mid
+                    float dx1 = cx2 - cx1, dy1 = cy2 - cy1;
+                    float len1 = Mathf.Sqrt(dx1*dx1 + dy1*dy1);
+                    float proj1 = ((x - cx1) * dx1 + (y - cy1) * dy1) / (len1 * len1);
+                    if (proj1 >= 0f && proj1 <= 1f)
+                    {
+                        float px = cx1 + proj1 * dx1, py = cy1 + proj1 * dy1;
+                        float d = Vector2.Distance(new Vector2(x, y), new Vector2(px, py));
+                        if (d < 2.2f) a = Mathf.Max(a, Mathf.Clamp01(2.2f - d) * 0.8f);
+                    }
+                    // Line 2: mid->end
+                    float dx2 = cx3 - cx2, dy2 = cy3 - cy2;
+                    float len2 = Mathf.Sqrt(dx2*dx2 + dy2*dy2);
+                    float proj2 = ((x - cx2) * dx2 + (y - cy2) * dy2) / (len2 * len2);
+                    if (proj2 >= 0f && proj2 <= 1f)
+                    {
+                        float px = cx2 + proj2 * dx2, py = cy2 + proj2 * dy2;
+                        float d = Vector2.Distance(new Vector2(x, y), new Vector2(px, py));
+                        if (d < 2.2f) a = Mathf.Max(a, Mathf.Clamp01(2.2f - d) * 0.8f);
+                    }
+                }
+                if (a > 0f) tex.SetPixel(x, y, new Color(1,1,1,Mathf.Clamp01(a)));
+            }
+            tex.Apply();
+            cachedShieldIcon = Sprite.Create(tex, new Rect(0,0,size,size), new Vector2(0.5f,0.5f), size);
+            cachedShieldIcon.name = "ShieldIcon";
+            return cachedShieldIcon;
         }
 
         // ============================================================

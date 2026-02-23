@@ -1,0 +1,22 @@
+fileFormatVersion: 2
+guid: 766f36c9503c48e5915b2dbb1b312f64
+labels:
+- gvh
+- gvhp_exportpath-Plugins/iOS/NativeTemplates/GADTMediumTemplateView.xib
+PluginImporter:
+  externalObjects: {}
+  serializedVersion: 3
+  iconMap: {}
+  executionOrder: {}
+  defineConstraints: []
+  isPreloaded: 0
+  isOverridable: 0
+  isExplicitlyReferenced: 0
+  validateReferences: 1
+  platformData:
+    Any:
+      enabled: 1
+      settings: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

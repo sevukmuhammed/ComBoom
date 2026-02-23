@@ -1,0 +1,23 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'com.google.unity.ads'
+    compileSdkVersion 34
+
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 35
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+apply from: 'packaging_options.gradle'

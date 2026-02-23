@@ -5,11 +5,14 @@ namespace ComBoom.UI
     [RequireComponent(typeof(RectTransform))]
     public class SafeAreaPanel : MonoBehaviour
     {
+        public static SafeAreaPanel Instance { get; private set; }
+
         private RectTransform rectTransform;
         private Rect lastSafeArea;
 
         private void Awake()
         {
+            Instance = this;
             rectTransform = GetComponent<RectTransform>();
             ApplySafeArea();
         }
@@ -38,5 +41,9 @@ namespace ComBoom.UI
             rectTransform.offsetMin = Vector2.zero;
             rectTransform.offsetMax = Vector2.zero;
         }
+
+        // Banner visibility metodlari (ileride kullanilabilir)
+        public void SetBannerVisible(bool visible) { }
+        public void SetBannerHeight(float height) { }
     }
 }

@@ -203,6 +203,86 @@ public class iOSBuilder : EditorWindow
         Debug.Log("[ComBoom] 1024x1024 App Store icon basariyla eklendi.");
     }
 
+    // Command-line batch mode build (no dialogs)
+    public static void BatchBuild()
+    {
+        Debug.Log("[ComBoom] iOS batch build başlatılıyor...");
+
+        // Sahne kontrolu
+        string[] scenes;
+        var editorScenes = EditorBuildSettings.scenes;
+        if (editorScenes != null && editorScenes.Length > 0)
+        {
+            scenes = new string[] { editorScenes[0].path };
+        }
+        else
+        {
+            // Fallback: en buyuk sahne dosyasini bul
+            var allScenes = new System.Collections.Generic.List<string>();
+            foreach (string path in AssetDatabase.GetAllAssetPaths())
+            {
+                if (path.EndsWith(".unity") && !path.Contains("Editor") && !path.Contains("Test"))
+                    allScenes.Add(path);
+            }
+            if (allScenes.Count == 0)
+            {
+                Debug.LogError("[ComBoom] Hicbir sahne bulunamadi!");
+                return;
+            }
+            allScenes.Sort((a, b) =>
+            {
+                var fileA = new System.IO.FileInfo(System.IO.Path.Combine(System.IO.Directory.GetParent(Application.dataPath).FullName, a));
+                var fileB = new System.IO.FileInfo(System.IO.Path.Combine(System.IO.Directory.GetParent(Application.dataPath).FullName, b));
+                return fileB.Length.CompareTo(fileA.Length);
+            });
+            scenes = new string[] { allScenes[0] };
+        }
+
+        Debug.Log($"[ComBoom] Build sahnesi: {scenes[0]}");
+
+        // Player ayarlari
+        PlayerSettings.productName = "ComBoom";
+        PlayerSettings.companyName = "M3Studios";
+        PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.iOS, "com.m3studios.comboom");
+        PlayerSettings.iOS.appleEnableAutomaticSigning = true;
+        PlayerSettings.iOS.targetOSVersionString = "15.0";
+        PlayerSettings.iOS.sdkVersion = iOSSdkVersion.DeviceSDK;
+        PlayerSettings.iOS.hideHomeButton = true;
+        PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
+        PlayerSettings.SplashScreen.show = false;
+
+        string buildPath = System.IO.Path.Combine(
+            System.IO.Directory.GetParent(Application.dataPath).FullName, "Builds", "iOS");
+
+        if (System.IO.Directory.Exists(buildPath))
+            System.IO.Directory.Delete(buildPath, true);
+        System.IO.Directory.CreateDirectory(buildPath);
+
+        // App icon
+        SetupAppIcon();
+
+        BuildPlayerOptions options = new BuildPlayerOptions
+        {
+            scenes = scenes,
+            locationPathName = buildPath,
+            target = BuildTarget.iOS,
+            options = BuildOptions.None
+        };
+
+        BuildReport report = BuildPipeline.BuildPlayer(options);
+        BuildSummary summary = report.summary;
+
+        if (summary.result == BuildResult.Succeeded)
+        {
+            Debug.Log($"[ComBoom] iOS build BASARILI! Boyut: {summary.totalSize / (1024 * 1024):F1} MB");
+            Debug.Log($"[ComBoom] Xcode proje: {buildPath}");
+        }
+        else
+        {
+            Debug.LogError($"[ComBoom] iOS build BASARISIZ! Hata: {summary.totalErrors}");
+        }
+    }
+
     private static string[] GetBuildScenes()
     {
         // Her zaman aktif sahneyi kullan (Editor'de acik olan)

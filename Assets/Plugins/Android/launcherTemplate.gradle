@@ -1,0 +1,76 @@
+apply plugin: 'com.android.application'
+apply from: 'setupSymbols.gradle'
+apply from: '../shared/keepUnitySymbols.gradle'
+apply from: '../shared/common.gradle'
+**APPLY_PLUGINS**
+
+dependencies {
+    implementation project(':unityLibrary')
+    }
+
+android {
+**SIGN**
+    namespace "**NAMESPACE**"
+    ndkPath "**NDKPATH**"
+    ndkVersion "**NDKVERSION**"
+    compileSdk **APIVERSION**
+    buildToolsVersion = "**BUILDTOOLS**"
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        applicationId '**APPLICATIONID**'
+        versionName '**VERSIONNAME**'
+        minSdk **MINSDK**
+        targetSdk 35
+        versionCode **VERSIONCODE**
+
+        ndk {
+            abiFilters **ABIFILTERS**
+            debugSymbolLevel **DEBUGSYMBOLLEVEL**
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+
+    androidResources {
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~"
+        noCompress = **BUILTIN_NOCOMPRESS** + unityStreamingAssets.tokenize(', ')
+    }**PACKAGING**
+
+    buildTypes {
+        debug {
+            minifyEnabled **MINIFY_DEBUG**
+            proguardFiles getDefaultProguardFile('proguard-android.txt')**SIGNCONFIG**
+            jniDebuggable true
+        }
+
+        release {
+            minifyEnabled **MINIFY_RELEASE**
+            proguardFiles getDefaultProguardFile('proguard-android.txt')**SIGNCONFIG**
+        }
+    }**SPLITS**
+**BUILT_APK_LOCATION**
+    bundle {
+        language {
+            enableSplit = false
+        }
+
+        density {
+            enableSplit = false
+        }
+
+        abi {
+            enableSplit = true
+        }
+
+        texture {
+            enableSplit = true
+        }
+    }
+}

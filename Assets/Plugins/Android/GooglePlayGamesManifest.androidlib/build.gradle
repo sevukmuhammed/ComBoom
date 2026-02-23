@@ -1,0 +1,21 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'com.google.android.gms.games.manifest'
+    compileSdkVersion 34
+
+    defaultConfig {
+        minSdkVersion 24
+        targetSdkVersion 35
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+}
