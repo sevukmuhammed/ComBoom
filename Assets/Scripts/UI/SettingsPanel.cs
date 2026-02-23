@@ -124,6 +124,12 @@ namespace ComBoom.UI
             if (audioManager != null) audioManager.PlayClick();
         }
 
+        public void OnPrivacyButton()
+        {
+            if (audioManager != null) audioManager.PlayClick();
+            Application.OpenURL("https://sevukmuhammed.github.io/ComBoom/privacy-policy.html");
+        }
+
         public void OnContactButton()
         {
             if (audioManager != null) audioManager.PlayClick();

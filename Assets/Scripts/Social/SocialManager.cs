@@ -2,6 +2,10 @@ using System;
 using UnityEngine;
 using UnityEngine.SocialPlatforms;
 using ComBoom.Core;
+#if UNITY_ANDROID
+using GooglePlayGames;
+using GooglePlayGames.BasicApi;
+#endif
 
 namespace ComBoom.Social
 {
@@ -15,6 +19,7 @@ namespace ComBoom.Social
         public string PlayerName { get; private set; } = "Player";
 
         private bool isAuthenticating;
+        private bool isInitialized;
 
         private void Awake()
         {
@@ -39,6 +44,23 @@ namespace ComBoom.Social
                 config = ScriptableObject.CreateInstance<SocialConfig>();
                 Debug.Log("[SocialManager] Varsayılan config oluşturuldu (Leaderboard ID: Ranks)");
             }
+
+            // Platform'u başlat
+            InitializePlatform();
+        }
+
+        private void InitializePlatform()
+        {
+            if (isInitialized) return;
+
+#if UNITY_ANDROID
+            // Google Play Games'i aktif et
+            PlayGamesPlatform.DebugLogEnabled = true;
+            PlayGamesPlatform.Activate();
+            Debug.Log("[SocialManager] Google Play Games platform aktif edildi");
+#endif
+
+            isInitialized = true;
         }
 
         /// <summary>
@@ -59,8 +81,9 @@ namespace ComBoom.Social
 
             isAuthenticating = true;
 
-#if UNITY_IOS || UNITY_ANDROID
-            Debug.Log("[SocialManager] Authentication başlatılıyor...");
+#if UNITY_IOS
+            // iOS - Game Center
+            Debug.Log("[SocialManager] Game Center authentication başlatılıyor...");
 
             UnityEngine.Social.localUser.Authenticate(success =>
             {
@@ -69,10 +92,8 @@ namespace ComBoom.Social
 
                 if (success)
                 {
-                    // Game Center'dan isim al
                     string gcName = UnityEngine.Social.localUser.userName;
 
-                    // Eğer isim bir ID gibi görünüyorsa (T:, G:, player: ile başlıyorsa) fallback kullan
                     if (string.IsNullOrEmpty(gcName) ||
                         gcName.StartsWith("T:") ||
                         gcName.StartsWith("G:") ||
@@ -86,17 +107,66 @@ namespace ComBoom.Social
                         PlayerName = gcName;
                     }
 
-                    Debug.Log($"[SocialManager] Authentication başarılı: {PlayerName} (raw: {gcName})");
-
-                    // Cloud'dan skoru çek ve local'e senkronize et
+                    Debug.Log($"[SocialManager] Game Center authentication başarılı: {PlayerName}");
                     SyncScoreFromCloud();
+                    SubmitLocalHighScore();
                 }
                 else
                 {
-                    Debug.Log("[SocialManager] Authentication başarısız");
+                    Debug.Log("[SocialManager] Game Center authentication başarısız");
                 }
 
                 onComplete?.Invoke(success);
+            });
+
+#elif UNITY_ANDROID
+            // Android - Google Play Games
+            Debug.Log("[SocialManager] Google Play Games authentication başlatılıyor...");
+
+            PlayGamesPlatform.Instance.Authenticate(status =>
+            {
+                if (status == SignInStatus.Success)
+                {
+                    isAuthenticating = false;
+                    IsAuthenticated = true;
+                    PlayerName = PlayGamesPlatform.Instance.GetUserDisplayName();
+
+                    if (string.IsNullOrEmpty(PlayerName))
+                    {
+                        PlayerName = "You";
+                    }
+
+                    Debug.Log($"[SocialManager] Google Play Games authentication başarılı: {PlayerName}");
+                    SyncScoreFromCloud();
+                    SubmitLocalHighScore();
+                    onComplete?.Invoke(true);
+                }
+                else
+                {
+                    Debug.Log($"[SocialManager] Sessiz giriş başarısız ({status}), manuel giriş deneniyor...");
+                    PlayGamesPlatform.Instance.ManuallyAuthenticate(manualStatus =>
+                    {
+                        isAuthenticating = false;
+                        IsAuthenticated = (manualStatus == SignInStatus.Success);
+
+                        if (IsAuthenticated)
+                        {
+                            PlayerName = PlayGamesPlatform.Instance.GetUserDisplayName();
+                            if (string.IsNullOrEmpty(PlayerName))
+                                PlayerName = "You";
+
+                            Debug.Log($"[SocialManager] Manuel giriş başarılı: {PlayerName}");
+                            SyncScoreFromCloud();
+                            SubmitLocalHighScore();
+                        }
+                        else
+                        {
+                            Debug.Log($"[SocialManager] Manuel giriş de başarısız: {manualStatus}");
+                        }
+
+                        onComplete?.Invoke(IsAuthenticated);
+                    });
+                }
             });
 #else
             Debug.Log("[SocialManager] Social platform desteklenmiyor (Editor)");
@@ -110,12 +180,12 @@ namespace ComBoom.Social
         /// </summary>
         private void SyncScoreFromCloud()
         {
-#if UNITY_IOS || UNITY_ANDROID
             if (config == null || string.IsNullOrEmpty(config.LeaderboardId))
                 return;
 
             Debug.Log("[SocialManager] Cloud'dan skor senkronizasyonu başlatılıyor...");
 
+#if UNITY_IOS
             ILeaderboard leaderboard = UnityEngine.Social.CreateLeaderboard();
             leaderboard.id = config.LeaderboardId;
             leaderboard.SetUserFilter(new string[] { UnityEngine.Social.localUser.id });
@@ -127,7 +197,6 @@ namespace ComBoom.Social
                     long cloudScore = leaderboard.localUserScore.value;
                     Debug.Log($"[SocialManager] Cloud'dan skor alındı: {cloudScore}");
 
-                    // ScoreManager'ı bul ve senkronize et
                     ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
                     if (scoreManager != null)
                     {
@@ -139,7 +208,46 @@ namespace ComBoom.Social
                     Debug.Log("[SocialManager] Cloud'da skor bulunamadı");
                 }
             });
+
+#elif UNITY_ANDROID
+            PlayGamesPlatform.Instance.LoadScores(
+                config.LeaderboardId,
+                LeaderboardStart.PlayerCentered,
+                1,
+                LeaderboardCollection.Public,
+                LeaderboardTimeSpan.AllTime,
+                (data) =>
+                {
+                    if (data.Valid && data.PlayerScore != null)
+                    {
+                        long cloudScore = data.PlayerScore.value;
+                        Debug.Log($"[SocialManager] Cloud'dan skor alındı: {cloudScore}");
+
+                        ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
+                        if (scoreManager != null)
+                        {
+                            scoreManager.SyncFromCloud((int)cloudScore);
+                        }
+                    }
+                    else
+                    {
+                        Debug.Log("[SocialManager] Cloud'da skor bulunamadı");
+                    }
+                });
 #endif
+        }
+
+        /// <summary>
+        /// Auth sonrası lokal high score'u leaderboard'a gönderir
+        /// </summary>
+        private void SubmitLocalHighScore()
+        {
+            ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
+            if (scoreManager != null && scoreManager.HighScore > 0)
+            {
+                Debug.Log($"[SocialManager] Lokal high score gönderiliyor: {scoreManager.HighScore}");
+                SubmitScore(scoreManager.HighScore);
+            }
         }
 
         /// <summary>
@@ -161,9 +269,9 @@ namespace ComBoom.Social
                 return;
             }
 
-#if UNITY_IOS || UNITY_ANDROID
             Debug.Log($"[SocialManager] Skor gönderiliyor: {score}");
 
+#if UNITY_IOS
             UnityEngine.Social.ReportScore(score, config.LeaderboardId, success =>
             {
                 if (success)
@@ -174,7 +282,20 @@ namespace ComBoom.Social
                 {
                     Debug.LogWarning("[SocialManager] Skor gönderilemedi");
                 }
+                onComplete?.Invoke(success);
+            });
 
+#elif UNITY_ANDROID
+            PlayGamesPlatform.Instance.ReportScore(score, config.LeaderboardId, success =>
+            {
+                if (success)
+                {
+                    Debug.Log($"[SocialManager] Skor başarıyla gönderildi: {score}");
+                }
+                else
+                {
+                    Debug.LogWarning("[SocialManager] Skor gönderilemedi");
+                }
                 onComplete?.Invoke(success);
             });
 #else
@@ -202,12 +323,23 @@ namespace ComBoom.Social
                 return;
             }
 
-#if UNITY_IOS || UNITY_ANDROID
             Debug.Log("[SocialManager] Leaderboard yükleniyor...");
 
+#if UNITY_IOS
+            LoadLeaderboardIOS(onComplete);
+#elif UNITY_ANDROID
+            LoadLeaderboardAndroid(onComplete);
+#else
+            Debug.Log("[SocialManager] Leaderboard yükleme desteklenmiyor (Editor)");
+            onComplete?.Invoke(null);
+#endif
+        }
+
+#if UNITY_IOS
+        private void LoadLeaderboardIOS(Action<LeaderboardEntry[]> onComplete)
+        {
             ILeaderboard leaderboard = UnityEngine.Social.CreateLeaderboard();
             leaderboard.id = config.LeaderboardId;
-            // Use fully qualified name to avoid conflict with System.Range
             leaderboard.range = new UnityEngine.SocialPlatforms.Range(1, 50);
 
             leaderboard.LoadScores(success =>
@@ -224,20 +356,16 @@ namespace ComBoom.Social
                         IScore score = leaderboard.scores[i];
                         bool isLocal = score.userID == localUserId;
 
-                        // Local player için kayıtlı ismi kullan
-                        string displayName = isLocal ? PlayerName : $"Player #{score.rank}";
-
                         entries[i] = new LeaderboardEntry
                         {
                             Rank = score.rank,
-                            PlayerName = displayName,
+                            PlayerName = isLocal ? PlayerName : $"Player #{score.rank}",
                             Score = score.value,
                             IsLocalPlayer = isLocal
                         };
                     }
 
-                    // Kullanıcı isimlerini yükle
-                    LoadUserNames(entries, leaderboard.scores, onComplete);
+                    LoadUserNamesIOS(entries, leaderboard.scores, onComplete);
                 }
                 else
                 {
@@ -245,14 +373,9 @@ namespace ComBoom.Social
                     onComplete?.Invoke(null);
                 }
             });
-#else
-            Debug.Log("[SocialManager] Leaderboard yükleme desteklenmiyor (Editor)");
-            onComplete?.Invoke(null);
-#endif
         }
 
-#if UNITY_IOS || UNITY_ANDROID
-        private void LoadUserNames(LeaderboardEntry[] entries, IScore[] scores, Action<LeaderboardEntry[]> onComplete)
+        private void LoadUserNamesIOS(LeaderboardEntry[] entries, IScore[] scores, Action<LeaderboardEntry[]> onComplete)
         {
             if (scores == null || scores.Length == 0)
             {
@@ -260,11 +383,9 @@ namespace ComBoom.Social
                 return;
             }
 
-            // Önce local player'ın ismini ayarla (bunu zaten biliyoruz)
             string localUserId = UnityEngine.Social.localUser.id;
             string localUserName = PlayerName;
 
-            // Eğer PlayerName boşsa localUser.userName'i dene
             if (string.IsNullOrEmpty(localUserName) || localUserName == "Player")
             {
                 localUserName = UnityEngine.Social.localUser.userName;
@@ -290,7 +411,6 @@ namespace ComBoom.Social
                 {
                     for (int i = 0; i < users.Length && i < entries.Length; i++)
                     {
-                        // Local player'ı atla - zaten ayarladık
                         if (entries[i].IsLocalPlayer) continue;
 
                         if (users[i] != null && !string.IsNullOrEmpty(users[i].userName))
@@ -299,17 +419,18 @@ namespace ComBoom.Social
                         }
                         else
                         {
-                            // Fallback: Anlamlı bir isim göster
                             entries[i].PlayerName = $"Player #{entries[i].Rank}";
                         }
                     }
                 }
                 else
                 {
-                    // LoadUsers başarısız olduysa fallback isimler
                     for (int i = 0; i < entries.Length; i++)
                     {
-                        if (!entries[i].IsLocalPlayer && (string.IsNullOrEmpty(entries[i].PlayerName) || entries[i].PlayerName.StartsWith("T:") || entries[i].PlayerName.StartsWith("G:")))
+                        if (!entries[i].IsLocalPlayer &&
+                            (string.IsNullOrEmpty(entries[i].PlayerName) ||
+                             entries[i].PlayerName.StartsWith("T:") ||
+                             entries[i].PlayerName.StartsWith("G:")))
                         {
                             entries[i].PlayerName = $"Player #{entries[i].Rank}";
                         }
@@ -318,6 +439,67 @@ namespace ComBoom.Social
 
                 onComplete?.Invoke(entries);
             });
+        }
+#endif
+
+#if UNITY_ANDROID
+        private void LoadLeaderboardAndroid(Action<LeaderboardEntry[]> onComplete)
+        {
+            PlayGamesPlatform.Instance.LoadScores(
+                config.LeaderboardId,
+                LeaderboardStart.PlayerCentered,
+                25,
+                LeaderboardCollection.Public,
+                LeaderboardTimeSpan.AllTime,
+                (data) =>
+                {
+                    Debug.Log($"[SocialManager] LoadScores Valid={data.Valid}, Scores={data.Scores?.Length ?? -1}, PlayerScore={data.PlayerScore?.value ?? -1}");
+
+                    if (data.Valid)
+                    {
+                        var entryList = new System.Collections.Generic.List<LeaderboardEntry>();
+                        string localUserId = PlayGamesPlatform.Instance.GetUserId();
+
+                        // Scores dizisinden gelen kayıtları ekle
+                        if (data.Scores != null)
+                        {
+                            for (int i = 0; i < data.Scores.Length; i++)
+                            {
+                                var score = data.Scores[i];
+                                bool isLocal = score.userID == localUserId;
+
+                                entryList.Add(new LeaderboardEntry
+                                {
+                                    Rank = score.rank,
+                                    PlayerName = isLocal ? PlayerName : $"Player #{score.rank}",
+                                    Score = score.value,
+                                    IsLocalPlayer = isLocal
+                                });
+                            }
+                        }
+
+                        // Scores boşsa ama PlayerScore varsa, onu ekle
+                        if (entryList.Count == 0 && data.PlayerScore != null && data.PlayerScore.value > 0)
+                        {
+                            Debug.Log($"[SocialManager] Scores boş, PlayerScore kullanılıyor: {data.PlayerScore.value}");
+                            entryList.Add(new LeaderboardEntry
+                            {
+                                Rank = data.PlayerScore.rank > 0 ? data.PlayerScore.rank : 1,
+                                PlayerName = PlayerName,
+                                Score = data.PlayerScore.value,
+                                IsLocalPlayer = true
+                            });
+                        }
+
+                        Debug.Log($"[SocialManager] {entryList.Count} skor yüklendi");
+                        onComplete?.Invoke(entryList.Count > 0 ? entryList.ToArray() : null);
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[SocialManager] Leaderboard yüklenemedi");
+                        onComplete?.Invoke(null);
+                    }
+                });
         }
 #endif
 
@@ -332,8 +514,10 @@ namespace ComBoom.Social
                 return;
             }
 
-#if UNITY_IOS || UNITY_ANDROID
+#if UNITY_IOS
             UnityEngine.Social.ShowLeaderboardUI();
+#elif UNITY_ANDROID
+            PlayGamesPlatform.Instance.ShowLeaderboardUI(config.LeaderboardId);
 #endif
         }
     }

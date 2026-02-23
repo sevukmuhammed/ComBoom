@@ -7,6 +7,7 @@ using ComBoom.Gameplay;
 using ComBoom.Input;
 using ComBoom.UI;
 using ComBoom.Ads;
+using ComBoom.Social;
 
 public class SceneSetup : EditorWindow
 {
@@ -44,6 +45,9 @@ public class SceneSetup : EditorWindow
 
         // AdManager olustur
         GameObject adManagerObj = CreateAdManager();
+
+        // SocialManager olustur
+        CreateSocialManager();
 
         // Splash screen olustur (Canvas altinda, tam ekran)
         CreateSplashScreen(canvasObj.transform);
@@ -2069,6 +2073,12 @@ public class SceneSetup : EditorWindow
             slateIcon, "TERMS OF SERVICE", 32, out termsBtn, "terms");
         AddRowExternalLink(termsBtn.transform);
 
+        // === PRIVACY POLICY ROW ===
+        Button privacyBtn;
+        CreateSettingsRow(content.transform, "PrivacyRow", SpriteGenerator.CreateShieldIconSprite(),
+            slateIcon, "PRIVACY POLICY", 32, out privacyBtn, "privacy_policy");
+        AddRowExternalLink(privacyBtn.transform);
+
         // === CONTACT ROW ===
         Button contactBtn;
         CreateSettingsRow(content.transform, "ContactRow", SpriteGenerator.CreateMailIconSprite(),
@@ -2102,6 +2112,8 @@ public class SceneSetup : EditorWindow
             langBtn.onClick, settingsPanel.OnLanguageButton);
         UnityEditor.Events.UnityEventTools.AddPersistentListener(
             termsBtn.onClick, settingsPanel.OnTermsButton);
+        UnityEditor.Events.UnityEventTools.AddPersistentListener(
+            privacyBtn.onClick, settingsPanel.OnPrivacyButton);
         UnityEditor.Events.UnityEventTools.AddPersistentListener(
             contactBtn.onClick, settingsPanel.OnContactButton);
 
@@ -2611,6 +2623,32 @@ public class SceneSetup : EditorWindow
         SetPrivateField(adMgr, "config", config);
 
         return adManagerObj;
+    }
+
+    // ============================================================
+    // SOCIAL MANAGER
+    // ============================================================
+    private static void CreateSocialManager()
+    {
+        GameObject socialManagerObj = new GameObject("SocialManager");
+        SocialManager socialMgr = socialManagerObj.AddComponent<SocialManager>();
+
+        // SocialConfig ScriptableObject olustur veya mevcut olani bul
+        string configPath = "Assets/Resources/SocialConfig.asset";
+        SocialConfig config = AssetDatabase.LoadAssetAtPath<SocialConfig>(configPath);
+
+        if (config == null)
+        {
+            config = ScriptableObject.CreateInstance<SocialConfig>();
+            AssetDatabase.CreateAsset(config, configPath);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[ComBoom] SocialConfig.asset olusturuldu: " + configPath);
+        }
+
+        // SocialManager'a config'i bagla
+        SetPrivateField(socialMgr, "config", config);
+
+        Debug.Log("[ComBoom] SocialManager olusturuldu (singleton - DontDestroyOnLoad)");
     }
 
     // ============================================================

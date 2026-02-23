@@ -3,6 +3,10 @@ using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using ComBoom.Gameplay;
+using ComBoom.Social;
+#if UNITY_ANDROID
+using GooglePlayGames;
+#endif
 
 public class AndroidBuilder : EditorWindow
 {
@@ -10,6 +14,206 @@ public class AndroidBuilder : EditorWindow
     public static void BuildAndroidAPK()
     {
         BuildAndroid(false);
+    }
+
+    // Command-line batch mode build (no dialogs)
+    public static void BatchBuildAPK()
+    {
+        Debug.Log("[ComBoom] Batch APK build baslatiliyor...");
+
+        PlayerSettings.productName = "ComBoom";
+        PlayerSettings.companyName = "M3Studios";
+        PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.m3studios.comboom");
+        PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
+        PlayerSettings.SplashScreen.show = false;
+        PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25;
+        PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel34;
+        PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+        EditorUserBuildSettings.buildAppBundle = false;
+
+        // Keystore ayarlari (batch mode icin gerekli)
+        PlayerSettings.Android.useCustomKeystore = true;
+        PlayerSettings.Android.keystoreName = System.IO.Path.Combine(
+            System.IO.Directory.GetParent(Application.dataPath).FullName, "comboom.keystore");
+        PlayerSettings.Android.keystorePass = "comboom";
+        PlayerSettings.Android.keyaliasName = "comboom";
+        PlayerSettings.Android.keyaliasPass = "comboom";
+
+        // Sahne bul
+        string[] scenes = null;
+        var buildScenes = EditorBuildSettings.scenes;
+        if (buildScenes != null && buildScenes.Length > 0)
+        {
+            var enabledScenes = new System.Collections.Generic.List<string>();
+            foreach (var s in buildScenes)
+            {
+                if (s.enabled) enabledScenes.Add(s.path);
+            }
+            if (enabledScenes.Count > 0) scenes = enabledScenes.ToArray();
+        }
+
+        if (scenes == null || scenes.Length == 0)
+        {
+            // Fallback: tum .unity dosyalarini ara
+            string[] allScenes = AssetDatabase.FindAssets("t:Scene", new[] { "Assets" });
+            var sceneList = new System.Collections.Generic.List<string>();
+            foreach (string guid in allScenes)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!path.Contains("Editor") && !path.Contains("Test"))
+                {
+                    sceneList.Add(path);
+                    Debug.Log($"[ComBoom] Bulunan sahne: {path}");
+                }
+            }
+            if (sceneList.Count > 0)
+            {
+                // En buyuk sahne dosyasini sec (ana sahne genellikle en buyuktur)
+                sceneList.Sort((a, b) =>
+                {
+                    var fileA = new System.IO.FileInfo(System.IO.Path.Combine(
+                        System.IO.Directory.GetParent(Application.dataPath).FullName, a));
+                    var fileB = new System.IO.FileInfo(System.IO.Path.Combine(
+                        System.IO.Directory.GetParent(Application.dataPath).FullName, b));
+                    return fileB.Length.CompareTo(fileA.Length);
+                });
+                scenes = new string[] { sceneList[0] };
+                Debug.Log($"[ComBoom] Ana sahne secildi: {scenes[0]}");
+            }
+        }
+
+        if (scenes == null || scenes.Length == 0)
+        {
+            Debug.LogError("[ComBoom] Hic sahne bulunamadi! Build iptal.");
+            EditorApplication.Exit(1);
+            return;
+        }
+
+        string buildDir = System.IO.Path.Combine(
+            System.IO.Directory.GetParent(Application.dataPath).FullName, "Builds", "Android");
+        if (!System.IO.Directory.Exists(buildDir))
+            System.IO.Directory.CreateDirectory(buildDir);
+
+        string buildPath = System.IO.Path.Combine(buildDir, "ComBoom.apk");
+        if (System.IO.File.Exists(buildPath))
+            System.IO.File.Delete(buildPath);
+
+        BuildPlayerOptions options = new BuildPlayerOptions
+        {
+            scenes = scenes,
+            locationPathName = buildPath,
+            target = BuildTarget.Android,
+            options = BuildOptions.None
+        };
+
+        BuildReport report = BuildPipeline.BuildPlayer(options);
+        if (report.summary.result == BuildResult.Succeeded)
+        {
+            Debug.Log($"[ComBoom] APK build BASARILI! Boyut: {report.summary.totalSize / (1024 * 1024):F1} MB");
+            Debug.Log($"[ComBoom] Dosya: {buildPath}");
+            EditorApplication.Exit(0);
+        }
+        else
+        {
+            Debug.LogError($"[ComBoom] APK build BASARISIZ! Hatalar: {report.summary.totalErrors}");
+            EditorApplication.Exit(1);
+        }
+    }
+
+    public static void BatchBuildAAB()
+    {
+        Debug.Log("[ComBoom] Batch AAB build baslatiliyor...");
+
+        PlayerSettings.productName = "ComBoom";
+        PlayerSettings.companyName = "M3Studios";
+        PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.m3studios.comboom");
+        PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
+        PlayerSettings.SplashScreen.show = false;
+        PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25;
+        PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel34;
+        PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+        EditorUserBuildSettings.buildAppBundle = true;
+
+        PlayerSettings.Android.useCustomKeystore = true;
+        PlayerSettings.Android.keystoreName = System.IO.Path.Combine(
+            System.IO.Directory.GetParent(Application.dataPath).FullName, "comboom.keystore");
+        PlayerSettings.Android.keystorePass = "comboom";
+        PlayerSettings.Android.keyaliasName = "comboom";
+        PlayerSettings.Android.keyaliasPass = "comboom";
+
+        string[] scenes = null;
+        var buildScenes = EditorBuildSettings.scenes;
+        if (buildScenes != null && buildScenes.Length > 0)
+        {
+            var enabledScenes = new System.Collections.Generic.List<string>();
+            foreach (var s in buildScenes)
+            {
+                if (s.enabled) enabledScenes.Add(s.path);
+            }
+            if (enabledScenes.Count > 0) scenes = enabledScenes.ToArray();
+        }
+
+        if (scenes == null || scenes.Length == 0)
+        {
+            string[] allScenes = AssetDatabase.FindAssets("t:Scene", new[] { "Assets" });
+            var sceneList = new System.Collections.Generic.List<string>();
+            foreach (string guid in allScenes)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!path.Contains("Editor") && !path.Contains("Test"))
+                    sceneList.Add(path);
+            }
+            if (sceneList.Count > 0)
+            {
+                sceneList.Sort((a, b) =>
+                {
+                    var fileA = new System.IO.FileInfo(System.IO.Path.Combine(
+                        System.IO.Directory.GetParent(Application.dataPath).FullName, a));
+                    var fileB = new System.IO.FileInfo(System.IO.Path.Combine(
+                        System.IO.Directory.GetParent(Application.dataPath).FullName, b));
+                    return fileB.Length.CompareTo(fileA.Length);
+                });
+                scenes = new string[] { sceneList[0] };
+                Debug.Log($"[ComBoom] Ana sahne secildi: {scenes[0]}");
+            }
+        }
+
+        if (scenes == null || scenes.Length == 0)
+        {
+            Debug.LogError("[ComBoom] Hic sahne bulunamadi! Build iptal.");
+            EditorApplication.Exit(1);
+            return;
+        }
+
+        string buildDir = System.IO.Path.Combine(
+            System.IO.Directory.GetParent(Application.dataPath).FullName, "Builds", "Android");
+        if (!System.IO.Directory.Exists(buildDir))
+            System.IO.Directory.CreateDirectory(buildDir);
+
+        string buildPath = System.IO.Path.Combine(buildDir, "ComBoom.aab");
+        if (System.IO.File.Exists(buildPath))
+            System.IO.File.Delete(buildPath);
+
+        BuildPlayerOptions options = new BuildPlayerOptions
+        {
+            scenes = scenes,
+            locationPathName = buildPath,
+            target = BuildTarget.Android,
+            options = BuildOptions.None
+        };
+
+        BuildReport report = BuildPipeline.BuildPlayer(options);
+        if (report.summary.result == BuildResult.Succeeded)
+        {
+            Debug.Log($"[ComBoom] AAB build BASARILI! Boyut: {report.summary.totalSize / (1024 * 1024):F1} MB");
+            Debug.Log($"[ComBoom] Dosya: {buildPath}");
+            EditorApplication.Exit(0);
+        }
+        else
+        {
+            Debug.LogError($"[ComBoom] AAB build BASARISIZ! Hatalar: {report.summary.totalErrors}");
+            EditorApplication.Exit(1);
+        }
     }
 
     [MenuItem("ComBoom/Build Android (AAB - Play Store)")]
@@ -34,6 +238,9 @@ public class AndroidBuilder : EditorWindow
             Debug.Log($"[ComBoom] Sahne zorla kaydedildi: {currentScene.path}");
         }
 
+        // GPGS yapilandirma kontrolu
+        ValidatePlayGamesSetup();
+
         // Sahne kontrolu
         string[] scenes = GetBuildScenes();
         if (scenes.Length == 0)
@@ -52,7 +259,7 @@ public class AndroidBuilder : EditorWindow
         PlayerSettings.SplashScreen.show = false;
 
         // Android spesifik
-        PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24; // Android 7.0
+        PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25; // Android 7.1
         PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel34; // Android 14
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         EditorUserBuildSettings.buildAppBundle = buildAAB;
@@ -107,6 +314,41 @@ public class AndroidBuilder : EditorWindow
         else
         {
             Debug.LogError($"[ComBoom] Android build BASARISIZ! Hata sayisi: {summary.totalErrors}");
+        }
+    }
+
+    private static void ValidatePlayGamesSetup()
+    {
+        var warnings = new System.Collections.Generic.List<string>();
+
+#if UNITY_ANDROID
+        if (!GameInfo.ApplicationIdInitialized())
+        {
+            warnings.Add("Google Play Games APP_ID ayarlanmamis (GameInfo.cs)");
+        }
+#endif
+
+        SocialConfig config = AssetDatabase.LoadAssetAtPath<SocialConfig>("Assets/Resources/SocialConfig.asset");
+        if (config == null)
+        {
+            warnings.Add("SocialConfig.asset bulunamadi (Assets/Resources/)");
+        }
+        else if (string.IsNullOrEmpty(config.androidLeaderboardId))
+        {
+            warnings.Add("Android Leaderboard ID bos (SocialConfig.asset)");
+        }
+
+        if (warnings.Count > 0)
+        {
+            string msg = "Google Play Games yapilandirma uyarilari:\n\n";
+            foreach (var w in warnings)
+            {
+                msg += "- " + w + "\n";
+            }
+            msg += "\nDuzeltmek icin: ComBoom > Setup Play Games\nBuild'e devam edebilirsiniz.";
+
+            Debug.LogWarning("[ComBoom] GPGS Yapilandirma Uyarisi:\n" + msg);
+            EditorUtility.DisplayDialog("GPGS Uyarisi", msg, "Tamam, Devam Et");
         }
     }
 

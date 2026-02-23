@@ -63,6 +63,9 @@ namespace GoogleMobileAds.Editor
     [SerializeField]
     private string userLanguage = "en";
 
+    [SerializeField]
+    private bool enableGradleBuildPreProcessor = true;
+
     public string GoogleMobileAdsAndroidAppId
     {
       get { return adMobAndroidAppId; }
@@ -117,6 +120,13 @@ namespace GoogleMobileAds.Editor
       get { return userLanguage; }
 
       set { userLanguage = value; }
+    }
+
+    public bool EnableGradleBuildPreProcessor
+    {
+      get { return enableGradleBuildPreProcessor; }
+
+      set { enableGradleBuildPreProcessor = value; }
     }
   }
 }

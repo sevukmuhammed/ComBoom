@@ -11,7 +11,7 @@ namespace ComBoom.Social
 
         [Header("Android - Play Games")]
         [Tooltip("Play Console'dan alınan Leaderboard ID")]
-        public string androidLeaderboardId = "";
+        public string androidLeaderboardId = "CgkItqyk5LYXEAIQAA";
 
         public string LeaderboardId
         {

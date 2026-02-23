@@ -31,6 +31,7 @@ namespace ComBoom.Gameplay
         private static Sprite cachedShareIcon;
         private static Sprite cachedGlobeIcon;
         private static Sprite cachedDocumentIcon;
+        private static Sprite cachedShieldIcon;
         private static Sprite cachedMailIcon;
         private static Sprite cachedChevronRight;
         private static Sprite cachedExternalLink;
@@ -67,6 +68,7 @@ namespace ComBoom.Gameplay
             cachedShareIcon = null;
             cachedGlobeIcon = null;
             cachedDocumentIcon = null;
+            cachedShieldIcon = null;
             cachedMailIcon = null;
             cachedChevronRight = null;
             cachedExternalLink = null;
@@ -1893,6 +1895,93 @@ namespace ComBoom.Gameplay
             cachedDocumentIcon = Sprite.Create(tex, new Rect(0,0,size,size), new Vector2(0.5f,0.5f), size);
             cachedDocumentIcon.name = "DocumentIcon";
             return cachedDocumentIcon;
+        }
+
+        // ============================================================
+        // SHIELD ICON - Privacy/Security kalkani
+        // ============================================================
+        public static Sprite CreateShieldIconSprite()
+        {
+            if (cachedShieldIcon != null) return cachedShieldIcon;
+            int size = 64;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            Color[] clear = new Color[size * size];
+            tex.SetPixels(clear);
+
+            float cx = 32f, top = 56f, bot = 10f;
+            float halfW = 16f; // shield half-width at top
+
+            for (int x = 0; x < size; x++)
+            for (int y = 0; y < size; y++)
+            {
+                float a = 0f;
+                // Shield shape: wide at top, narrows to point at bottom
+                float t = Mathf.InverseLerp(bot, top, y); // 0=bottom, 1=top
+                float w = halfW * Mathf.Lerp(0f, 1f, Mathf.Pow(t, 0.45f));
+                float left = cx - w;
+                float right = cx + w;
+
+                // Top is flat with slight curve
+                bool inShield = x >= left && x <= right && y >= bot && y <= top;
+                // Round the top corners
+                if (y > top - 6f && inShield)
+                {
+                    float cornerR = 5f;
+                    if (x < left + cornerR && y > top - cornerR)
+                    {
+                        float dist = Vector2.Distance(new Vector2(x, y), new Vector2(left + cornerR, top - cornerR));
+                        if (dist > cornerR) inShield = false;
+                    }
+                    if (x > right - cornerR && y > top - cornerR)
+                    {
+                        float dist = Vector2.Distance(new Vector2(x, y), new Vector2(right - cornerR, top - cornerR));
+                        if (dist > cornerR) inShield = false;
+                    }
+                }
+
+                if (inShield)
+                {
+                    // Border
+                    float dLeft = x - left, dRight = right - x;
+                    float dBot = y - bot, dTop = top - y;
+                    float dEdge = Mathf.Min(Mathf.Min(dLeft, dRight), Mathf.Min(dBot, dTop));
+                    if (dEdge < 2.5f)
+                        a = Mathf.Max(a, Mathf.Clamp01(2.5f - dEdge));
+
+                    // Checkmark inside shield
+                    // Check stroke from (24,30) -> (30,24) -> (40,42)
+                    float cx1 = 26f, cy1 = 32f; // start
+                    float cx2 = 30f, cy2 = 27f; // mid
+                    float cx3 = 39f, cy3 = 40f; // end
+
+                    // Line 1: start->mid
+                    float dx1 = cx2 - cx1, dy1 = cy2 - cy1;
+                    float len1 = Mathf.Sqrt(dx1*dx1 + dy1*dy1);
+                    float proj1 = ((x - cx1) * dx1 + (y - cy1) * dy1) / (len1 * len1);
+                    if (proj1 >= 0f && proj1 <= 1f)
+                    {
+                        float px = cx1 + proj1 * dx1, py = cy1 + proj1 * dy1;
+                        float d = Vector2.Distance(new Vector2(x, y), new Vector2(px, py));
+                        if (d < 2.2f) a = Mathf.Max(a, Mathf.Clamp01(2.2f - d) * 0.8f);
+                    }
+                    // Line 2: mid->end
+                    float dx2 = cx3 - cx2, dy2 = cy3 - cy2;
+                    float len2 = Mathf.Sqrt(dx2*dx2 + dy2*dy2);
+                    float proj2 = ((x - cx2) * dx2 + (y - cy2) * dy2) / (len2 * len2);
+                    if (proj2 >= 0f && proj2 <= 1f)
+                    {
+                        float px = cx2 + proj2 * dx2, py = cy2 + proj2 * dy2;
+                        float d = Vector2.Distance(new Vector2(x, y), new Vector2(px, py));
+                        if (d < 2.2f) a = Mathf.Max(a, Mathf.Clamp01(2.2f - d) * 0.8f);
+                    }
+                }
+                if (a > 0f) tex.SetPixel(x, y, new Color(1,1,1,Mathf.Clamp01(a)));
+            }
+            tex.Apply();
+            cachedShieldIcon = Sprite.Create(tex, new Rect(0,0,size,size), new Vector2(0.5f,0.5f), size);
+            cachedShieldIcon.name = "ShieldIcon";
+            return cachedShieldIcon;
         }
 
         // ============================================================

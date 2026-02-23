@@ -18,18 +18,6 @@ namespace ComBoom.UI
 
         private bool isLoading;
 
-        private static readonly string[] DummyNames = {
-            "BlockMaster", "PuzzleKing", "FitQueen", "GridWizard", "ComboLord",
-            "NeonNinja", "PixelPro", "CubeCrush", "TetrisGod", "StackHero",
-            "LineBreaker", "ScoreBoss", "ShapeShift", "BrickLayer", "ClearKing",
-            "JewelJam", "BlockBust", "GridGuru", "PiecePro", "DropMaster",
-            "SlotKing", "FillPro", "RowClear", "ColSmash", "ComboX",
-            "MegaBlock", "SuperFit", "UltraGrid", "HyperDrop", "TurboLine",
-            "SwiftBlock", "QuickFit", "FlashGrid", "RapidDrop", "SpeedLine",
-            "AlphaBlock", "BetaFit", "GammaGrid", "DeltaDrop", "OmegaLine",
-            "ProBlock", "EliteFit", "MasterGrid", "ChampDrop", "AceLine",
-            "TopBlock", "PeakFit", "MaxGrid", "PrimeDrop", "BestLine"
-        };
 
         public void Show()
         {
@@ -60,7 +48,7 @@ namespace ComBoom.UI
             }
             else
             {
-                PopulateMockList();
+                ShowPlayGamesPrompt();
             }
         }
 
@@ -85,7 +73,7 @@ namespace ComBoom.UI
                 }
                 else
                 {
-                    PopulateMockList();
+                    ShowEmptyLeaderboardMessage();
                 }
             });
         }
@@ -113,37 +101,117 @@ namespace ComBoom.UI
             }
         }
 
-        private void PopulateMockList()
+        private void ShowEmptyLeaderboardMessage()
         {
-            int entryCount = 50;
-            int topScore = 900000;
-            int botScore = 10000;
-
-            int playerScore = GetPlayerHighScore();
-            int playerRank = entryCount + 1;
-            int[] mockScores = new int[entryCount];
-
-            for (int i = 0; i < entryCount; i++)
-            {
-                float t = (float)i / (entryCount - 1);
-                int score = Mathf.RoundToInt(Mathf.Lerp(topScore, botScore, t * t));
-                mockScores[i] = (score / 100) * 100;
-
-                if (playerScore >= mockScores[i] && playerRank > i + 1)
-                {
-                    playerRank = i + 1;
-                }
-            }
-
-            for (int i = 0; i < entryCount; i++)
-            {
-                int rank = i + 1;
-                string playerName = DummyNames[i % DummyNames.Length];
-                CreateRankRow(rank, playerName, mockScores[i], false);
-            }
-
             if (playerRankText != null)
-                playerRankText.text = playerScore > 0 ? $"#{playerRank}" : "#--";
+                playerRankText.text = "#1";
+
+            GameObject msgObj = new GameObject("EmptyLeaderboard");
+            msgObj.transform.SetParent(contentParent, false);
+            RectTransform msgRT = msgObj.AddComponent<RectTransform>();
+            msgRT.sizeDelta = new Vector2(0, 300);
+
+            VerticalLayoutGroup vlg = msgObj.AddComponent<VerticalLayoutGroup>();
+            vlg.childAlignment = TextAnchor.MiddleCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            vlg.spacing = 16;
+            vlg.padding = new RectOffset(30, 30, 60, 30);
+
+            GameObject iconObj = new GameObject("Icon");
+            iconObj.transform.SetParent(msgObj.transform, false);
+            Image iconImg = iconObj.AddComponent<Image>();
+            iconImg.sprite = SpriteGenerator.CreateTrophyIconSprite();
+            iconImg.preserveAspect = true;
+            iconImg.color = new Color(0.961f, 0.620f, 0.043f, 0.7f);
+            iconImg.raycastTarget = false;
+            LayoutElement iconLE = iconObj.AddComponent<LayoutElement>();
+            iconLE.preferredWidth = 80;
+            iconLE.preferredHeight = 80;
+
+            GameObject titleObj = new GameObject("Title");
+            titleObj.transform.SetParent(msgObj.transform, false);
+            TextMeshProUGUI titleTMP = titleObj.AddComponent<TextMeshProUGUI>();
+            titleTMP.font = GetDefaultTMPFont();
+            titleTMP.text = LocalizationManager.Get("ranks_empty_title");
+            titleTMP.fontSize = 42;
+            titleTMP.fontStyle = FontStyles.Bold;
+            titleTMP.alignment = TextAlignmentOptions.Center;
+            titleTMP.color = Color.white;
+            LayoutElement titleLE = titleObj.AddComponent<LayoutElement>();
+            titleLE.preferredHeight = 55;
+
+            GameObject descObj = new GameObject("Desc");
+            descObj.transform.SetParent(msgObj.transform, false);
+            TextMeshProUGUI descTMP = descObj.AddComponent<TextMeshProUGUI>();
+            descTMP.font = GetDefaultTMPFont();
+            descTMP.text = LocalizationManager.Get("ranks_empty_desc");
+            descTMP.fontSize = 32;
+            descTMP.alignment = TextAlignmentOptions.Center;
+            descTMP.color = new Color(0.392f, 0.455f, 0.545f, 1f);
+            descTMP.enableWordWrapping = true;
+            LayoutElement descLE = descObj.AddComponent<LayoutElement>();
+            descLE.preferredHeight = 100;
+        }
+
+        private void ShowPlayGamesPrompt()
+        {
+            if (playerRankText != null)
+                playerRankText.text = "#--";
+
+            GameObject msgObj = new GameObject("PlayGamesPrompt");
+            msgObj.transform.SetParent(contentParent, false);
+            RectTransform msgRT = msgObj.AddComponent<RectTransform>();
+            msgRT.sizeDelta = new Vector2(0, 300);
+
+            VerticalLayoutGroup vlg = msgObj.AddComponent<VerticalLayoutGroup>();
+            vlg.childAlignment = TextAnchor.MiddleCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            vlg.spacing = 16;
+            vlg.padding = new RectOffset(30, 30, 60, 30);
+
+            // Icon
+            GameObject iconObj = new GameObject("Icon");
+            iconObj.transform.SetParent(msgObj.transform, false);
+            Image iconImg = iconObj.AddComponent<Image>();
+            iconImg.sprite = SpriteGenerator.CreateTrophyIconSprite();
+            iconImg.preserveAspect = true;
+            iconImg.color = new Color(0.392f, 0.455f, 0.545f, 0.5f);
+            iconImg.raycastTarget = false;
+            LayoutElement iconLE = iconObj.AddComponent<LayoutElement>();
+            iconLE.preferredWidth = 80;
+            iconLE.preferredHeight = 80;
+
+            // Title
+            GameObject titleObj = new GameObject("Title");
+            titleObj.transform.SetParent(msgObj.transform, false);
+            TextMeshProUGUI titleTMP = titleObj.AddComponent<TextMeshProUGUI>();
+            titleTMP.font = GetDefaultTMPFont();
+            titleTMP.text = LocalizationManager.Get("ranks_no_play_games_title");
+            titleTMP.fontSize = 42;
+            titleTMP.fontStyle = FontStyles.Bold;
+            titleTMP.alignment = TextAlignmentOptions.Center;
+            titleTMP.color = Color.white;
+            LayoutElement titleLE = titleObj.AddComponent<LayoutElement>();
+            titleLE.preferredHeight = 55;
+
+            // Description
+            GameObject descObj = new GameObject("Desc");
+            descObj.transform.SetParent(msgObj.transform, false);
+            TextMeshProUGUI descTMP = descObj.AddComponent<TextMeshProUGUI>();
+            descTMP.font = GetDefaultTMPFont();
+            descTMP.text = LocalizationManager.Get("ranks_no_play_games_desc");
+            descTMP.fontSize = 32;
+            descTMP.alignment = TextAlignmentOptions.Center;
+            descTMP.color = new Color(0.392f, 0.455f, 0.545f, 1f);
+            descTMP.enableWordWrapping = true;
+            LayoutElement descLE = descObj.AddComponent<LayoutElement>();
+            descLE.preferredHeight = 100;
         }
 
         private void UpdatePlayerScoreBar()
