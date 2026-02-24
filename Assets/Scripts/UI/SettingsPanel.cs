@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using ComBoom.Core;
+using ComBoom.Social;
 
 namespace ComBoom.UI
 {
@@ -24,6 +25,10 @@ namespace ComBoom.UI
 
         [Header("Language")]
         [SerializeField] private TextMeshProUGUI languageLabel;
+
+        [Header("Social")]
+        [SerializeField] private TextMeshProUGUI socialButtonLabel;
+        [SerializeField] private TextMeshProUGUI socialStatusLabel;
 
         private bool soundEnabled = true;
         private bool musicEnabled = true;
@@ -53,6 +58,7 @@ namespace ComBoom.UI
             if (panel != null) panel.SetActive(true);
             UpdateToggleVisuals();
             UpdateLanguageLabel();
+            UpdateSocialStatus();
         }
 
         public void Hide()
@@ -133,6 +139,53 @@ namespace ComBoom.UI
         public void OnContactButton()
         {
             if (audioManager != null) audioManager.PlayClick();
+        }
+
+        public void OnSocialButton()
+        {
+            if (audioManager != null) audioManager.PlayClick();
+
+            if (SocialManager.Instance == null) return;
+
+            if (SocialManager.Instance.IsAuthenticated)
+            {
+                // Zaten giriş yapılmış - bilgi göster
+                Debug.Log("[SettingsPanel] Zaten giriş yapılmış");
+            }
+            else
+            {
+                SocialManager.Instance.Authenticate(success =>
+                {
+                    UpdateSocialStatus();
+                });
+            }
+        }
+
+        private void UpdateSocialStatus()
+        {
+            if (SocialManager.Instance == null) return;
+
+            bool isAuth = SocialManager.Instance.IsAuthenticated;
+
+            if (socialButtonLabel != null)
+            {
+#if UNITY_IOS
+                socialButtonLabel.text = isAuth
+                    ? LocalizationManager.Get("social_connected")
+                    : LocalizationManager.Get("social_sign_in_gc");
+#else
+                socialButtonLabel.text = isAuth
+                    ? LocalizationManager.Get("social_connected")
+                    : LocalizationManager.Get("social_sign_in_gpg");
+#endif
+            }
+
+            if (socialStatusLabel != null)
+            {
+                socialStatusLabel.text = isAuth
+                    ? SocialManager.Instance.PlayerName
+                    : "";
+            }
         }
 
         private void UpdateLanguageLabel()

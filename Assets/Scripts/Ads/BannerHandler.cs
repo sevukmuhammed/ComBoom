@@ -38,7 +38,8 @@ namespace ComBoom.Ads
 #if GOOGLE_MOBILE_ADS
         private void CreateBanner()
         {
-            bannerView = new BannerView(config.BannerId, AdSize.Banner, AdPosition.Bottom);
+            AdSize adaptiveSize = AdSize.GetCurrentOrientationAnchoredAdaptiveBannerAdSizeWithWidth(AdSize.FullWidth);
+            bannerView = new BannerView(config.BannerId, adaptiveSize, AdPosition.Bottom);
 
             bannerView.OnBannerAdLoaded += () =>
             {

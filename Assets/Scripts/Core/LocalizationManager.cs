@@ -128,6 +128,11 @@ namespace ComBoom.Core
             Add("privacy_policy","PRIVACY POLICY","GİZLİLİK POLİTİKASI","DATENSCHUTZRICHTLINIE","POLÍTICA DE PRIVACIDAD","INFORMATIVA SULLA PRIVACY","POLITIQUE DE CONFIDENTIALITÉ");
             Add("contact_us",   "CONTACT US",   "BİZE ULAŞIN",  "KONTAKTIERE UNS","CONTÁCTENOS","CONTATTACI",  "CONTACTEZ-NOUS");
 
+            // === SOCIAL ===
+            Add("social_sign_in_gc",  "Sign in with Game Center",    "Game Center ile Giriş Yap",   "Mit Game Center anmelden",    "Iniciar sesión con Game Center",    "Accedi con Game Center",    "Se connecter avec Game Center");
+            Add("social_sign_in_gpg", "Sign in with Play Games",     "Play Games ile Giriş Yap",    "Mit Play Games anmelden",     "Iniciar sesión con Play Games",     "Accedi con Play Games",     "Se connecter avec Play Games");
+            Add("social_connected",   "Connected",                   "Bağlı",                       "Verbunden",                   "Conectado",                         "Connesso",                  "Connecté");
+
             // === RANKS ===
             Add("ranks",        "RANKS",        "SIRALAMA",     "RANGLISTE",    "CLASIFICACIÓN","CLASSIFICA",   "CLASSEMENT");
             Add("you",          "You",          "Sen",          "Du",           "Tú",           "Tu",           "Toi");

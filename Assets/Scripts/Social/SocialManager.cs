@@ -203,7 +203,7 @@ namespace ComBoom.Social
         private ScoreManager GetScoreManager()
         {
             if (_cachedScoreManager == null)
-                _cachedScoreManager = GetScoreManager();
+                _cachedScoreManager = FindObjectOfType<ScoreManager>();
             return _cachedScoreManager;
         }
 
