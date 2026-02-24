@@ -7,22 +7,22 @@ namespace ComBoom.Ads
     {
         [Header("AdMob App IDs")]
         [Tooltip("iOS App ID (ca-app-pub-xxx~xxx)")]
-        public string iOSAppId = "";
+        public string iOSAppId = "ca-app-pub-3547461470560005~4336547122";
 
         [Tooltip("Android App ID (ca-app-pub-xxx~xxx)")]
-        public string androidAppId = "";
+        public string androidAppId = "ca-app-pub-3547461470560005~4144975434";
 
         [Header("Banner Ad Units")]
-        public string iOSBannerId = "ca-app-pub-3940256099942544/2934735716";
-        public string androidBannerId = "ca-app-pub-3940256099942544/6300978111";
+        public string iOSBannerId = "ca-app-pub-3547461470560005/7290013528";
+        public string androidBannerId = "ca-app-pub-3547461470560005/7996590533";
 
         [Header("Interstitial Ad Units")]
-        public string iOSInterstitialId = "ca-app-pub-3940256099942544/4411468910";
-        public string androidInterstitialId = "ca-app-pub-3940256099942544/1033173712";
+        public string iOSInterstitialId = "ca-app-pub-3547461470560005/3127407233";
+        public string androidInterstitialId = "ca-app-pub-3547461470560005/2855944498";
 
         [Header("Rewarded Ad Units")]
-        public string iOSRewardedId = "ca-app-pub-3940256099942544/1712485313";
-        public string androidRewardedId = "ca-app-pub-3940256099942544/5224354917";
+        public string iOSRewardedId = "ca-app-pub-3547461470560005/8188162221";
+        public string androidRewardedId = "ca-app-pub-3547461470560005/4693292859";
 
         [Header("Interstitial Settings")]
         [Tooltip("Minimum games before first interstitial")]

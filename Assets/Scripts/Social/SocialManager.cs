@@ -20,6 +20,8 @@ namespace ComBoom.Social
 
         private bool isAuthenticating;
         private bool isInitialized;
+        private ScoreManager _cachedScoreManager;
+        private System.Collections.Generic.List<Action<bool>> pendingAuthCallbacks;
 
         private void Awake()
         {
@@ -76,10 +78,23 @@ namespace ComBoom.Social
 
             if (isAuthenticating)
             {
+                // Callback'i kuyruğa ekle, kaybetme
+                if (onComplete != null)
+                {
+                    if (pendingAuthCallbacks == null)
+                        pendingAuthCallbacks = new System.Collections.Generic.List<Action<bool>>();
+                    pendingAuthCallbacks.Add(onComplete);
+                }
                 return;
             }
 
             isAuthenticating = true;
+            if (onComplete != null)
+            {
+                if (pendingAuthCallbacks == null)
+                    pendingAuthCallbacks = new System.Collections.Generic.List<Action<bool>>();
+                pendingAuthCallbacks.Add(onComplete);
+            }
 
 #if UNITY_IOS
             // iOS - Game Center
@@ -116,7 +131,7 @@ namespace ComBoom.Social
                     Debug.Log("[SocialManager] Game Center authentication başarısız");
                 }
 
-                onComplete?.Invoke(success);
+                InvokeAuthCallbacks(success);
             });
 
 #elif UNITY_ANDROID
@@ -139,7 +154,7 @@ namespace ComBoom.Social
                     Debug.Log($"[SocialManager] Google Play Games authentication başarılı: {PlayerName}");
                     SyncScoreFromCloud();
                     SubmitLocalHighScore();
-                    onComplete?.Invoke(true);
+                    InvokeAuthCallbacks(true);
                 }
                 else
                 {
@@ -164,15 +179,32 @@ namespace ComBoom.Social
                             Debug.Log($"[SocialManager] Manuel giriş de başarısız: {manualStatus}");
                         }
 
-                        onComplete?.Invoke(IsAuthenticated);
+                        InvokeAuthCallbacks(IsAuthenticated);
                     });
                 }
             });
 #else
             Debug.Log("[SocialManager] Social platform desteklenmiyor (Editor)");
             isAuthenticating = false;
-            onComplete?.Invoke(false);
+            InvokeAuthCallbacks(false);
 #endif
+        }
+
+        private void InvokeAuthCallbacks(bool success)
+        {
+            if (pendingAuthCallbacks != null)
+            {
+                foreach (var cb in pendingAuthCallbacks)
+                    cb?.Invoke(success);
+                pendingAuthCallbacks.Clear();
+            }
+        }
+
+        private ScoreManager GetScoreManager()
+        {
+            if (_cachedScoreManager == null)
+                _cachedScoreManager = GetScoreManager();
+            return _cachedScoreManager;
         }
 
         /// <summary>
@@ -197,7 +229,7 @@ namespace ComBoom.Social
                     long cloudScore = leaderboard.localUserScore.value;
                     Debug.Log($"[SocialManager] Cloud'dan skor alındı: {cloudScore}");
 
-                    ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
+                    ScoreManager scoreManager = GetScoreManager();
                     if (scoreManager != null)
                     {
                         scoreManager.SyncFromCloud((int)cloudScore);
@@ -223,7 +255,7 @@ namespace ComBoom.Social
                         long cloudScore = data.PlayerScore.value;
                         Debug.Log($"[SocialManager] Cloud'dan skor alındı: {cloudScore}");
 
-                        ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
+                        ScoreManager scoreManager = GetScoreManager();
                         if (scoreManager != null)
                         {
                             scoreManager.SyncFromCloud((int)cloudScore);
@@ -242,7 +274,7 @@ namespace ComBoom.Social
         /// </summary>
         private void SubmitLocalHighScore()
         {
-            ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
+            ScoreManager scoreManager = GetScoreManager();
             if (scoreManager != null && scoreManager.HighScore > 0)
             {
                 Debug.Log($"[SocialManager] Lokal high score gönderiliyor: {scoreManager.HighScore}");
@@ -503,22 +535,5 @@ namespace ComBoom.Social
         }
 #endif
 
-        /// <summary>
-        /// Platform'un native leaderboard UI'ını gösterir
-        /// </summary>
-        public void ShowNativeLeaderboard()
-        {
-            if (!IsAuthenticated)
-            {
-                Debug.Log("[SocialManager] Native UI gösterilemiyor - authenticate değil");
-                return;
-            }
-
-#if UNITY_IOS
-            UnityEngine.Social.ShowLeaderboardUI();
-#elif UNITY_ANDROID
-            PlayGamesPlatform.Instance.ShowLeaderboardUI(config.LeaderboardId);
-#endif
-        }
     }
 }

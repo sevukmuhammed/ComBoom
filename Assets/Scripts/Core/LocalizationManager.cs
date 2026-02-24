@@ -21,8 +21,29 @@ namespace ComBoom.Core
         {
             if (initialized) return;
             InitTranslations();
-            currentLanguage = PlayerPrefs.GetString("ComBoom_Language", "en");
+            string savedLang = PlayerPrefs.GetString("ComBoom_Language", "");
+            if (string.IsNullOrEmpty(savedLang))
+            {
+                // Ilk acilista cihaz dilini otomatik algila
+                savedLang = DetectSystemLanguage();
+                PlayerPrefs.SetString("ComBoom_Language", savedLang);
+                PlayerPrefs.Save();
+            }
+            currentLanguage = savedLang;
             initialized = true;
+        }
+
+        private static string DetectSystemLanguage()
+        {
+            switch (Application.systemLanguage)
+            {
+                case SystemLanguage.Turkish: return "tr";
+                case SystemLanguage.German: return "de";
+                case SystemLanguage.Spanish: return "es";
+                case SystemLanguage.Italian: return "it";
+                case SystemLanguage.French: return "fr";
+                default: return "en";
+            }
         }
 
         public static void SetLanguage(string code)
@@ -82,7 +103,7 @@ namespace ComBoom.Core
             // === CONTINUE ===
             Add("continue_watch_ad","WATCH AD & CONTINUE","REKLAM İZLE VE DEVAM ET","WERBUNG ANSEHEN & WEITERSPIELEN","VER ANUNCIO Y CONTINUAR","GUARDA PUBBLICITÀ E CONTINUA","REGARDER PUB ET CONTINUER");
             Add("continue_desc","Clear 2 rows and keep playing","2 satır temizle ve oynamaya devam et","2 Reihen löschen und weiterspielen","Elimina 2 filas y sigue jugando","Cancella 2 righe e continua a giocare","Effacer 2 lignes et continuer");
-            Add("skip",         "SKIP",         "GEÇI",        "ÜBERSPRINGEN", "SALTAR",       "SALTA",        "PASSER");
+            Add("skip",         "SKIP",         "GEÇ",         "ÜBERSPRINGEN", "SALTAR",       "SALTA",        "PASSER");
 
             // === PAUSE MENU ===
             Add("paused",       "PAUSED",       "DURAKLATILDI", "PAUSIERT",     "PAUSADO",      "IN PAUSA",     "EN PAUSE");
@@ -111,6 +132,23 @@ namespace ComBoom.Core
             Add("ranks",        "RANKS",        "SIRALAMA",     "RANGLISTE",    "CLASIFICACIÓN","CLASSIFICA",   "CLASSEMENT");
             Add("you",          "You",          "Sen",          "Du",           "Tú",           "Tu",           "Toi");
             Add("your_rank",    "Your Rank",    "Sıralaman",    "Dein Rang",    "Tu Rango",     "Il Tuo Rango", "Ton Rang");
+            // Platform-specific: Android = Google Play Games, iOS = Game Center
+#if UNITY_IOS
+            Add("ranks_no_play_games_title",
+                "Game Center Required",
+                "Game Center Gerekli",
+                "Game Center erforderlich",
+                "Se requiere Game Center",
+                "Game Center richiesto",
+                "Game Center requis");
+            Add("ranks_no_play_games_desc",
+                "Sign in with Game Center to see the leaderboard and compete with other players.",
+                "Skor tablosunu görmek ve diğer oyuncularla yarışmak için Game Center ile giriş yapın.",
+                "Melden Sie sich bei Game Center an, um die Bestenliste zu sehen und gegen andere Spieler anzutreten.",
+                "Inicia sesión en Game Center para ver la clasificación y competir con otros jugadores.",
+                "Accedi a Game Center per vedere la classifica e competere con altri giocatori.",
+                "Connectez-vous à Game Center pour voir le classement et rivaliser avec d'autres joueurs.");
+#else
             Add("ranks_no_play_games_title",
                 "Google Play Games Required",
                 "Google Play Games Gerekli",
@@ -125,6 +163,7 @@ namespace ComBoom.Core
                 "Inicia sesión en Google Play Games para ver la clasificación y competir con otros jugadores.",
                 "Accedi a Google Play Games per vedere la classifica e competere con altri giocatori.",
                 "Connectez-vous à Google Play Games pour voir le classement et rivaliser avec d'autres joueurs.");
+#endif
             Add("ranks_empty_title",
                 "Be the First!",
                 "İlk Sen Ol!",

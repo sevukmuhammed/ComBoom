@@ -27,17 +27,17 @@ public class AndroidBuilder : EditorWindow
         PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
         PlayerSettings.SplashScreen.show = false;
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25;
-        PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel34;
+        PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel35;
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         EditorUserBuildSettings.buildAppBundle = false;
 
-        // Keystore ayarlari (batch mode icin gerekli)
+        // Keystore ayarlari (environment variable veya fallback)
         PlayerSettings.Android.useCustomKeystore = true;
         PlayerSettings.Android.keystoreName = System.IO.Path.Combine(
             System.IO.Directory.GetParent(Application.dataPath).FullName, "comboom.keystore");
-        PlayerSettings.Android.keystorePass = "comboom";
+        PlayerSettings.Android.keystorePass = GetKeystorePassword("COMBOOM_KEYSTORE_PASS");
         PlayerSettings.Android.keyaliasName = "comboom";
-        PlayerSettings.Android.keyaliasPass = "comboom";
+        PlayerSettings.Android.keyaliasPass = GetKeystorePassword("COMBOOM_KEY_PASS");
 
         // Sahne bul
         string[] scenes = null;
@@ -130,16 +130,16 @@ public class AndroidBuilder : EditorWindow
         PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
         PlayerSettings.SplashScreen.show = false;
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25;
-        PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel34;
+        PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel35;
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         EditorUserBuildSettings.buildAppBundle = true;
 
         PlayerSettings.Android.useCustomKeystore = true;
         PlayerSettings.Android.keystoreName = System.IO.Path.Combine(
             System.IO.Directory.GetParent(Application.dataPath).FullName, "comboom.keystore");
-        PlayerSettings.Android.keystorePass = "comboom";
+        PlayerSettings.Android.keystorePass = GetKeystorePassword("COMBOOM_KEYSTORE_PASS");
         PlayerSettings.Android.keyaliasName = "comboom";
-        PlayerSettings.Android.keyaliasPass = "comboom";
+        PlayerSettings.Android.keyaliasPass = GetKeystorePassword("COMBOOM_KEY_PASS");
 
         string[] scenes = null;
         var buildScenes = EditorBuildSettings.scenes;
@@ -260,7 +260,7 @@ public class AndroidBuilder : EditorWindow
 
         // Android spesifik
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25; // Android 7.1
-        PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel34; // Android 14
+        PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel35; // Android 14
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         EditorUserBuildSettings.buildAppBundle = buildAAB;
 
@@ -272,7 +272,7 @@ public class AndroidBuilder : EditorWindow
 
         // Build baslatilsin mi?
         if (!EditorUtility.DisplayDialog("ComBoom Android Build",
-            $"Android {formatStr} build baslatilacak.\n\nBundle ID: com.m3studios.comboom\nSahneler: {scenes.Length} sahne\nMin SDK: Android 7.0 (API 24)\nMimari: ARM64\n\nDevam?",
+            $"Android {formatStr} build baslatilacak.\n\nBundle ID: com.m3studios.comboom\nSahneler: {scenes.Length} sahne\nMin SDK: Android 7.1 (API 25)\nTarget SDK: API 35\nMimari: ARM64\n\nDevam?",
             "Build", "Iptal"))
         {
             return;
@@ -418,6 +418,16 @@ public class AndroidBuilder : EditorWindow
             Object.Destroy(iconTex);
         else
             Object.DestroyImmediate(iconTex);
+    }
+
+    private static string GetKeystorePassword(string envVar)
+    {
+        string envValue = System.Environment.GetEnvironmentVariable(envVar);
+        if (!string.IsNullOrEmpty(envValue))
+            return envValue;
+
+        Debug.LogWarning($"[ComBoom] {envVar} environment variable bulunamadi, varsayilan sifre kullaniliyor.");
+        return "comboom";
     }
 
     private static string[] GetBuildScenes()

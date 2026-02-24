@@ -97,7 +97,7 @@ namespace ComBoom.UI
                 if (playerRank > 0)
                     playerRankText.text = $"#{playerRank}";
                 else
-                    playerRankText.text = playerScore > 0 ? "#--" : "#--";
+                    playerRankText.text = "#--";
             }
         }
 
