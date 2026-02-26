@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using ComBoom.Core;
 
 namespace ComBoom.Gameplay
 {
@@ -46,10 +47,37 @@ namespace ComBoom.Gameplay
 
             // 3 parca icin 3 farkli renk sec
             Color[] setColors = PickDistinctColors(3);
-            for (int i = 0; i < 3; i++)
+
+            // Smart piece selection
+            var gm = GameManager.Instance;
+            if (gm != null)
             {
-                SpawnPieceAtSlot(i, setColors[i]);
+                var ctx = gm.GetSelectionContext();
+                var gridData = gm.CurrentState == GameState.Playing ? GetGridFromManager() : null;
+                PieceData[] selected = PieceSelector.SelectSet(ctx, gridData);
+
+                bool hasSmall = false;
+                for (int i = 0; i < 3; i++)
+                {
+                    if (PieceDatabase.GetPieceSize(selected[i]) == PieceSize.Small)
+                        hasSmall = true;
+                    SpawnPieceAtSlot(i, setColors[i], selected[i]);
+                }
+                gm.UpdateSetsWithoutSmall(hasSmall);
             }
+            else
+            {
+                // Fallback: random (no GameManager)
+                for (int i = 0; i < 3; i++)
+                    SpawnPieceAtSlot(i, setColors[i]);
+            }
+        }
+
+        private GameGrid GetGridFromManager()
+        {
+            // GridManager referansini GameManager uzerinden al
+            var gridManager = FindAnyObjectByType<GridManager>();
+            return gridManager != null ? gridManager.GridData : null;
         }
 
         private Color[] PickDistinctColors(int count)
@@ -72,29 +100,32 @@ namespace ComBoom.Gameplay
 
         private void SpawnPieceAtSlot(int slotIndex, Color color)
         {
+            SpawnPieceAtSlot(slotIndex, color, PieceDatabase.GetRandom());
+        }
+
+        private void SpawnPieceAtSlot(int slotIndex, Color color, PieceData pieceData)
+        {
             // Eski parcayi temizle
             if (currentPieces[slotIndex] != null)
             {
                 Destroy(currentPieces[slotIndex].gameObject);
             }
 
-            PieceData randomPiece = PieceDatabase.GetRandom();
-
             GameObject pieceObj = new GameObject($"Piece_Slot{slotIndex}");
             pieceObj.transform.position = slotPositions[slotIndex].position;
 
             Piece piece = pieceObj.AddComponent<Piece>();
-            piece.Initialize(randomPiece, blockSprite, color, TotalCellSize, cellSize);
+            piece.Initialize(pieceData, blockSprite, color, TotalCellSize, cellSize);
 
             // Parcayi slot boyutuna gore olcekle
-            float fitScale = CalculatePieceScale(randomPiece);
+            float fitScale = CalculatePieceScale(pieceData);
             piece.SetSlotScale(fitScale);
             piece.SaveOriginalPosition();
 
             // Collider ekle (drag icin) - kucuk parcalar icin minimum dokunma alani
             BoxCollider2D collider = pieceObj.AddComponent<BoxCollider2D>();
-            float width = randomPiece.Cols * TotalCellSize;
-            float height = randomPiece.Rows * TotalCellSize;
+            float width = pieceData.Cols * TotalCellSize;
+            float height = pieceData.Rows * TotalCellSize;
             float minTouchSize = 2.0f / fitScale; // Scale'den bagimsiz min ~2 unit
             collider.size = new Vector2(
                 Mathf.Max(width * 1.2f, minTouchSize),

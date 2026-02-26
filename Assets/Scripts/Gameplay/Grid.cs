@@ -193,6 +193,15 @@ namespace ComBoom.Gameplay
             }
         }
 
+        public float GetFillRatio()
+        {
+            int filled = 0;
+            for (int r = 0; r < SIZE; r++)
+                for (int c = 0; c < SIZE; c++)
+                    if (cells[r, c] != 0) filled++;
+            return filled / (float)(SIZE * SIZE);
+        }
+
         public bool IsEmpty()
         {
             for (int r = 0; r < SIZE; r++)

@@ -34,6 +34,7 @@ namespace ComBoom.Core
         private int lastScore;
         private int lastComboCount;
         private bool lastLinesClearedThisTurn;
+        private int lastTurnsWithoutClear;
         private bool canUndo;
 
         // Bomb mode
@@ -120,6 +121,7 @@ namespace ComBoom.Core
             lastScore = scoreManager.CurrentScore;
             lastComboCount = comboCount;
             lastLinesClearedThisTurn = linesClearedThisTurn;
+            lastTurnsWithoutClear = GameManager.Instance != null ? GameManager.Instance.TurnsWithoutClear : 0;
             canUndo = true;
             UpdateUndoState();
         }
@@ -154,7 +156,7 @@ namespace ComBoom.Core
             gridManager.RestoreVisuals(lastGridSnapshot.Value);
             pieceSpawner.RestoreSnapshot(lastPieceSnapshot.Value);
             scoreManager.SetScore(lastScore);
-            gm.RestoreComboState(lastComboCount, lastLinesClearedThisTurn);
+            gm.RestoreComboState(lastComboCount, lastLinesClearedThisTurn, lastTurnsWithoutClear);
 
             canUndo = false;
             lastGridSnapshot = null;

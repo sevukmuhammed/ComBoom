@@ -2,6 +2,8 @@ using System.Collections.Generic;
 
 namespace ComBoom.Gameplay
 {
+    public enum PieceSize { Small, Medium, Large }
+
     public static class PieceDatabase
     {
         private static List<PieceData> allPieces;
@@ -116,6 +118,24 @@ namespace ComBoom.Gameplay
         {
             int index = UnityEngine.Random.Range(0, AllPieces.Count);
             return AllPieces[index];
+        }
+
+        public static PieceSize GetPieceSize(PieceData piece)
+        {
+            if (piece.blockCount <= 3) return PieceSize.Small;
+            if (piece.blockCount <= 4) return PieceSize.Medium;
+            return PieceSize.Large;
+        }
+
+        public static List<PieceData> GetPiecesBySize(PieceSize size)
+        {
+            var result = new List<PieceData>();
+            foreach (var piece in AllPieces)
+            {
+                if (GetPieceSize(piece) == size)
+                    result.Add(piece);
+            }
+            return result;
         }
     }
 }

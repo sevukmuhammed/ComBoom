@@ -52,6 +52,11 @@ namespace ComBoom.Core
         private bool xpAddedThisGame;
         private bool canContinue;
 
+        // Smart piece selection state
+        private int turnsWithoutClear;
+        private int setsWithoutSmall;
+        public int TurnsWithoutClear => turnsWithoutClear;
+
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -148,6 +153,8 @@ namespace ComBoom.Core
             linesClearedThisTurn = false;
             xpAddedThisGame = false;
             canContinue = true;
+            turnsWithoutClear = 0;
+            setsWithoutSmall = 0;
 
             if (audioManager != null) audioManager.StopMusic();
 
@@ -242,6 +249,7 @@ namespace ComBoom.Core
             if (!linesClearedThisTurn)
             {
                 comboCount = 0;
+                turnsWithoutClear++;
             }
             linesClearedThisTurn = false;
 
@@ -259,6 +267,7 @@ namespace ComBoom.Core
         {
             linesClearedThisTurn = true;
             comboCount++;
+            turnsWithoutClear = 0;
 
             // Combo carpani: 1, 2, 4, 8, 16...
             int multiplier = 1 << (comboCount - 1);
@@ -309,10 +318,28 @@ namespace ComBoom.Core
             }
         }
 
-        public void RestoreComboState(int combo, bool linesCleared)
+        public void RestoreComboState(int combo, bool linesCleared, int savedTurnsWithoutClear = -1)
         {
             comboCount = combo;
             linesClearedThisTurn = linesCleared;
+            if (savedTurnsWithoutClear >= 0)
+                turnsWithoutClear = savedTurnsWithoutClear;
+        }
+
+        public SelectionContext GetSelectionContext()
+        {
+            return new SelectionContext
+            {
+                fillRatio = gridManager != null ? gridManager.GridData.GetFillRatio() : 0f,
+                turnsWithoutClear = turnsWithoutClear,
+                comboCount = comboCount,
+                setsWithoutSmall = setsWithoutSmall
+            };
+        }
+
+        public void UpdateSetsWithoutSmall(bool hasSmall)
+        {
+            setsWithoutSmall = hasSmall ? 0 : setsWithoutSmall + 1;
         }
 
         private void EndGame()
