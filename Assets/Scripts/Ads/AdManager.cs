@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System;
+using System.Collections;
+using System.Runtime.InteropServices;
 #if GOOGLE_MOBILE_ADS
 using GoogleMobileAds.Api;
 #endif
@@ -28,6 +30,22 @@ namespace ComBoom.Ads
         public bool IsInitialized => isInitialized;
         public AdConfig Config => config;
 
+#if UNITY_IOS && !UNITY_EDITOR
+        [DllImport("__Internal")]
+        private static extern void ATTHelper_RequestPermission(ATTCompletionDelegate callback);
+
+        private delegate void ATTCompletionDelegate(int status);
+
+        [AOT.MonoPInvokeCallback(typeof(ATTCompletionDelegate))]
+        private static void OnATTComplete(int status)
+        {
+            Debug.Log($"[AdManager] ATT status: {status}");
+            _attResolved = true;
+        }
+
+        private static volatile bool _attResolved;
+#endif
+
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -38,27 +56,86 @@ namespace ComBoom.Ads
             Instance = this;
             DontDestroyOnLoad(gameObject);
 
-            InitializeAds();
+            StartCoroutine(InitializeWithConsent());
         }
 
-        private void InitializeAds()
+        private IEnumerator InitializeWithConsent()
         {
 #if GOOGLE_MOBILE_ADS
+            // 1. UMP consent
+            bool consentDone = false;
+            bool canRequestAds = false;
+
+            ConsentManager.Instance.Initialize((result) =>
+            {
+                canRequestAds = result;
+                consentDone = true;
+            });
+
+            // Consent icin bekle (max 10 saniye)
+            float timeout = 10f;
+            while (!consentDone && timeout > 0f)
+            {
+                timeout -= Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            if (!consentDone)
+            {
+                Debug.LogWarning("[AdManager] Consent timeout. Proceeding with ads.");
+                canRequestAds = true;
+            }
+
+            if (!canRequestAds)
+            {
+                Debug.Log("[AdManager] User did not consent. Ads will not load.");
+                isInitialized = false;
+                yield break;
+            }
+
+            // 2. iOS ATT
+#if UNITY_IOS && !UNITY_EDITOR
+            _attResolved = false;
+            ATTHelper_RequestPermission(OnATTComplete);
+
+            float attTimeout = 60f; // ATT dialog kullanici etkilesimi gerektiriyor
+            while (!_attResolved && attTimeout > 0f)
+            {
+                attTimeout -= Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            if (!_attResolved)
+            {
+                Debug.LogWarning("[AdManager] ATT timeout. Proceeding anyway.");
+            }
+#endif
+
+            // 3. MobileAds Initialize
+            bool adsInitDone = false;
             MobileAds.Initialize(initStatus =>
             {
                 Debug.Log("[AdManager] Google Mobile Ads initialized");
-                isInitialized = true;
-
-                bannerHandler = new BannerHandler(config);
-                interstitialHandler = new InterstitialHandler(config);
-                rewardedHandler = new RewardedHandler(config);
-
-                interstitialHandler.LoadAd();
-                rewardedHandler.LoadAd();
+                adsInitDone = true;
             });
+
+            while (!adsInitDone)
+            {
+                yield return null;
+            }
+
+            // 4. Handler'lari olustur ve reklam yukle
+            isInitialized = true;
+            bannerHandler = new BannerHandler(config);
+            interstitialHandler = new InterstitialHandler(config);
+            rewardedHandler = new RewardedHandler(config);
+
+            interstitialHandler.LoadAd();
+            rewardedHandler.LoadAd();
 #else
             Debug.LogWarning("[AdManager] Google Mobile Ads SDK not installed. Ads disabled.");
             isInitialized = false;
+            yield break;
 #endif
         }
 

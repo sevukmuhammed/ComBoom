@@ -17,7 +17,7 @@ MonoBehaviour:
   enableKotlinXCoroutinesPackagingOption: 1
   optimizeInitialization: 0
   optimizeAdLoading: 0
-  userTrackingUsageDescription: 
+  userTrackingUsageDescription: This identifier will be used to deliver personalized ads to you.
   validateGradleDependencies: 0
   userLanguage: en
   enableGradleBuildPreProcessor: 1

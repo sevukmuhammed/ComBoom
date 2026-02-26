@@ -29,13 +29,13 @@ namespace ComBoom.Ads
         public int gamesBeforeFirstInterstitial = 2;
 
         [Tooltip("Show interstitial every N games")]
-        public int interstitialFrequency = 3;
+        public int interstitialFrequency = 2;
 
         [Tooltip("Cooldown between interstitials (seconds)")]
         public float interstitialCooldown = 60f;
 
         [Tooltip("Maximum interstitials per session")]
-        public int maxInterstitialsPerSession = 6;
+        public int maxInterstitialsPerSession = 8;
 
         [Header("Continue Settings")]
         [Tooltip("Number of rows to clear when continuing")]

@@ -89,5 +89,15 @@ Assets/_Recovery/
 # Gradle backup files
 *.gradle.backup
 
+# Performance test artifacts
+Assets/Resources/PerformanceTestRunInfo.json*
+Assets/Resources/PerformanceTestRunSettings.json*
+
+# Duplicated resource folders
+**/Resources 2.meta
+
+# Gradle backup meta files
+*.gradle.backup.meta
+
 # Claude settings
 .claude/

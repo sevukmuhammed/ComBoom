@@ -30,6 +30,7 @@ public class AndroidBuilder : EditorWindow
         PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel35;
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         EditorUserBuildSettings.buildAppBundle = false;
+        PlayerSettings.Android.minifyRelease = true;
 
         // Keystore ayarlari (environment variable veya fallback)
         PlayerSettings.Android.useCustomKeystore = true;
@@ -133,6 +134,7 @@ public class AndroidBuilder : EditorWindow
         PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel35;
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         EditorUserBuildSettings.buildAppBundle = true;
+        PlayerSettings.Android.minifyRelease = true;
 
         PlayerSettings.Android.useCustomKeystore = true;
         PlayerSettings.Android.keystoreName = System.IO.Path.Combine(
@@ -263,6 +265,7 @@ public class AndroidBuilder : EditorWindow
         PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel35; // Android 14
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         EditorUserBuildSettings.buildAppBundle = buildAAB;
+        PlayerSettings.Android.minifyRelease = true;
 
         // App icon ayarla
         SetupAndroidIcon();
